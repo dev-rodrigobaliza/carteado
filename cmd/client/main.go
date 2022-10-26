@@ -68,7 +68,7 @@ func (c *Client) listenListen() {
 		switch message.Message {
 		case "welcome player":
 			data := make(map[string]interface{})
-			data["token"] = "v4.local.S9VU-92yayPkcjGIrKx3OX1dSPiqYeYzxJ1e5wRWKt2WSgrUV9X-EFQfcNCPOYYuEcbmD-YpCpmoRCw-Ehgag-02bd6cAXUBE3qQhR-uBlcmFR-XeQI8kytNkKTBKtakn6ZOMlWdtabIpnR3ioo6aAHRMV5KO2w"
+			data["token"] = "v4.local.TqajZDVRzA-wGa2yhzzfnNErivkuofatcxSGr1RyniA1P06m0NhbZUC9n3BfIu4eSgxupyDDgZ2a447sbM8D3dtvGdpiyioSmd2VjYveBbAZu8SXo9ODI1YiYA4jgBVxZvebKNl9DOptvZ_lKwi19xvrtp_UdW0"
 
 			req := &request.WSRequest{
 				RequestID: requestID,
@@ -85,6 +85,7 @@ func (c *Client) listenListen() {
 			data["min_players"] = 2
 			data["max_players"] = 5
 			data["allow_bots"] = true
+			data["secret"] = "secret"
 
 			req := &request.WSRequest{
 				RequestID: requestID,
@@ -114,24 +115,24 @@ func (c *Client) listenListen() {
 
 			c.sendBuf <- req.ToBytes()
 
-		case "game status", "game removed":
-			gameID, ok := message.Data["game_id"].(string)
-			if !ok {
-				fmt.Printf("message received and not processed: %v\n", message)
-				continue
-			}
+		// case "game status", "game removed":
+		// 	gameID, ok := message.Data["game_id"].(string)
+		// 	if !ok {
+		// 		fmt.Printf("message received and not processed: %v\n", message)
+		// 		continue
+		// 	}
 
-			data := make(map[string]interface{})
-			data["game_id"] = gameID
+		// 	data := make(map[string]interface{})
+		// 	data["game_id"] = gameID
 
-			req := &request.WSRequest{
-				RequestID: requestID,
-				Service:   "game",
-				Resource:  "remove",
-			}
-			req.Data = data
+		// 	req := &request.WSRequest{
+		// 		RequestID: requestID,
+		// 		Service:   "game",
+		// 		Resource:  "remove",
+		// 	}
+		// 	req.Data = data
 
-			c.sendBuf <- req.ToBytes()
+		// 	c.sendBuf <- req.ToBytes()
 		}
 	}
 }

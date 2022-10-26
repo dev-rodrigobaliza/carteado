@@ -5,8 +5,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func SendResponseBadRequest(c *fiber.Ctx) error {
-	return SendResponseFull(c, fiber.StatusBadRequest, "error", "bad request", nil)
+func SendResponseBadRequest(c *fiber.Ctx, err error) error {
+	return SendResponseFull(c, fiber.StatusBadRequest, "error", err.Error(), nil)
 }
 
 func SendResponseError(c *fiber.Ctx, statusCode int, message string) error {

@@ -3,17 +3,19 @@ package websocket
 import (
 	"time"
 
+	"github.com/dev-rodrigobaliza/carteado/domain/response"
+	"github.com/dev-rodrigobaliza/carteado/utils"
 	"github.com/gofiber/websocket/v2"
 )
 
 type Player struct {
 	hub    *Hub
 	conn   *websocket.Conn
+	user   *response.User
 	send   chan []byte
 	addr   string
-	id     string
+	uuid   string
 	gameID string
-	auth   bool
 	since  time.Time
 }
 
@@ -23,7 +25,6 @@ func NewPlayer(hub *Hub, conn *websocket.Conn) {
 		hub:  hub,
 		send: make(chan []byte, BUFFER_SIZE),
 		addr: conn.RemoteAddr().String(),
-		auth: false,
 	}
 	player.addr = player.String()
 
@@ -35,6 +36,19 @@ func NewPlayer(hub *Hub, conn *websocket.Conn) {
 func (p *Player) Send(data []byte) {
 	wsMessage := NewWSMessage(p, data)
 	go p.hub.sendOne(wsMessage)
+}
+
+func (p *Player) Login(user *response.User) bool {
+	userOut := (p.user == nil || p.user.ID != user.ID)
+	if userOut {
+		p.user = user
+		p.uuid = "pid-" + utils.NewUUID()
+		p.since = time.Now()
+	}
+
+	p.hub.loginPlayer(p)
+
+	return userOut
 }
 
 func (p *Player) String() string {

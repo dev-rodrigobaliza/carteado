@@ -9,6 +9,7 @@ type GameStatus struct {
 	PlayerCount int
 	GameRound   uint64
 	AllowBots   bool
+	Private     bool
 	GameType    GameType
 	GameState   GameState
 }

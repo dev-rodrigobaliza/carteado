@@ -7,7 +7,7 @@ import (
 )
 
 // these variables will be updated by the build script
-const (	
+const (
 	APPMADEBY = "dev-rodrigobaliza"
 	APPNAME   = "carteado"
 )
@@ -17,6 +17,10 @@ var (
 	appVersion = "0.0.0"
 	debug      = "false"
 )
+
+func init() {
+	log.SetFlags(log.Ldate | log.Lmicroseconds)
+}
 
 func main() {
 	dbg := (debug == "true")

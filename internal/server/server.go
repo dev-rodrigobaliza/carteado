@@ -63,8 +63,7 @@ func New(cfg *config.App) *Server {
 	handlers.Load(appService, api)
 
 	ws := app.Group("ws")
-	websocket.AuthService = appService.AuthService
-	s.websocketLoad(ws)
+	s.websocketLoad(ws, appService)
 
 	app.Use(s.error404())
 

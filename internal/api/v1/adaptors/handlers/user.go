@@ -39,7 +39,7 @@ func (h *UserHandler) Add(c *fiber.Ctx) error {
 	// let the user service process request
 	response, errors, err := h.userService.Add(&userData)
 	if err != nil {
-		return utils.SendResponseBadRequest(c)
+		return utils.SendResponseBadRequest(c, err)
 	}
 	if errors != nil {
 		return utils.SendResponseValidationError(c, errors)
@@ -53,7 +53,22 @@ func (h *UserHandler) Delete(c *fiber.Ctx) error {
 }
 
 func (h *UserHandler) Get(c *fiber.Ctx) error {
-	return utils.SendResponseNotImplemented(c)
+	// extract data from request
+	var userData request.GetUser
+	err := c.BodyParser(&userData)
+	if err != nil {
+		return utils.SendResponseUnprocessableEntity(c, "expected json with fields: id and/or email")
+	}
+	// let the user service process request
+	response, errors, err := h.userService.Get(&userData)
+	if err != nil {
+		return utils.SendResponseBadRequest(c, err)
+	}
+	if errors != nil {
+		return utils.SendResponseValidationError(c, errors)
+	}
+
+	return utils.SendResponseSuccess(c, "user created", response)
 }
 
 func (h *UserHandler) Update(c *fiber.Ctx) error {

@@ -20,7 +20,7 @@ type IUserHandler interface {
 type IUserService interface {
 	Add(user *request.User) (*response.User, []*response.ErrorValidation, error)
 	Delete() error
-	Get() error
+	Get(user *request.GetUser) (*response.User, []*response.ErrorValidation, error)
 	Update() error
 }
 

@@ -70,8 +70,8 @@ func (r *UserRepository) FindByID(id uint64) (*model.User, error) {
 	// search for user in database
 	var user model.User
 	user.ID = id
-	r.db.First(&user)
-	if user.ID == 0 {
+	err := r.db.First(&user).Error
+	if err != nil {
 		return nil, errors.New("user not found")
 	}
 
@@ -81,4 +81,3 @@ func (r *UserRepository) FindByID(id uint64) (*model.User, error) {
 func (r *UserRepository) Update() error {
 	return errors.New("not implemented")
 }
-

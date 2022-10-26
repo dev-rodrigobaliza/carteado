@@ -1,9 +1,17 @@
 package websocket
 
 import (
+	"log"
+
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
 )
+
+func (g *GameProcessor) debug(format string, v ...any) {
+	if g.cfg.Debug {
+		log.Printf(format, v...)
+	}
+}
 
 func (g *GameProcessor) getGameID(message *request.WSRequest) string {
 	gameID, ok := message.Data["game_id"].(string)
@@ -13,6 +21,7 @@ func (g *GameProcessor) getGameID(message *request.WSRequest) string {
 
 	return gameID
 }
+
 
 func (g *GameProcessor) sendResponse(player *Player, request *request.WSRequest, status, message string, data map[string]interface{}) {
 	response := &response.WSResponse{
@@ -29,8 +38,14 @@ func (g *GameProcessor) sendResponse(player *Player, request *request.WSRequest,
 	player.Send(response.ToBytes())
 }
 
-func (g *GameProcessor) sendResponseError(player *Player, request *request.WSRequest, message string) {
-	g.sendResponse(player, request, "error", message, nil)
+func (g *GameProcessor) sendResponseError(player *Player, request *request.WSRequest, message string, err error) {
+	var data map[string]interface{}
+	if err != nil && g.cfg.Debug {
+		data = make(map[string]interface{})
+		data["error"] = err.Error()
+	}
+
+	g.sendResponse(player, request, "error", message, data)
 }
 
 func (g *GameProcessor) sendResponseSuccess(player *Player, request *request.WSRequest, message string, data map[string]interface{}) {

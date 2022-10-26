@@ -2,39 +2,36 @@ package websocket
 
 import (
 	"log"
-	"sync"
 
 	"github.com/dev-rodrigobaliza/carteado/domain/config"
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
+	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/adaptors/services"
+	"github.com/dev-rodrigobaliza/carteado/pkg/safemap"
 )
 
 const BUFFER_SIZE = 1024
 
 type Hub struct {
 	cfg           *config.App
-	playersLock   *sync.RWMutex
-	players       map[*Player]bool
-	gameProcessor *GameProcessor
-
+	players       *safemap.SafeMap[*Player, bool]
 	broadcast     chan []byte
 	wsMessage     chan *WSMessage
 	add           chan *Player
 	remove        chan *Player
 	done          chan struct{}
+	gameProcessor *GameProcessor
 }
 
-func NewHub(cfg *config.App) *Hub {
+func NewHub(cfg *config.App, appService *services.AppService) *Hub {
 	hub := &Hub{
 		cfg:           cfg,
-		playersLock:   &sync.RWMutex{},
-		players:       make(map[*Player]bool),
-		gameProcessor: NewGameProcessor(cfg),
-
+		players:       safemap.New[*Player, bool](),
 		broadcast:     make(chan []byte),
 		wsMessage:     make(chan *WSMessage, BUFFER_SIZE),
 		add:           make(chan *Player),
 		remove:        make(chan *Player),
 		done:          make(chan struct{}),
+		gameProcessor: NewGameProcessor(cfg, appService),
 	}
 	go hub.Run()
 
@@ -48,7 +45,7 @@ func (h *Hub) Run() {
 		select {
 		case player := <-h.add:
 			h.addPlayer(player)
-			go h.gameProcessor.sendResponseSuccess(player, nil, "welcome player", h.welcomeMesssage())
+			go h.greetingMesssage(player, "welcome player")
 			h.debug("+++ new player connected\t%s", player)
 
 		case player := <-h.remove:
@@ -74,12 +71,7 @@ func (h *Hub) Stop() {
 }
 
 func (h *Hub) addPlayer(player *Player) {
-	h.playersLock.Lock()
-	defer h.playersLock.Unlock()
-
-	if !h.players[player] {
-		h.players[player] = true
-	}
+	h.players.Insert(player, true)
 }
 
 func (h *Hub) debug(format string, v ...any) {
@@ -88,16 +80,29 @@ func (h *Hub) debug(format string, v ...any) {
 	}
 }
 
-func (h *Hub) delPlayer(player *Player, closePlayer bool) {
+func (h *Hub) delPlayer(player *Player, closePlayer bool) error {
 	if closePlayer {
 		close(player.send)
 	}
 
-	h.playersLock.Lock()
-	defer h.playersLock.Unlock()
+	return h.players.Delete(player)
+}
 
-	if h.players[player] {
-		delete(h.players, player)
+func (h *Hub) loginPlayer(player *Player) {
+	var welcomePlayer *Player
+	// if player has previous login and remove it
+	players := h.players.GetAllKeys()
+	for _, p := range players {
+		if p != player && p.user != nil && p.user.ID == player.user.ID {
+			p.user = nil
+			welcomePlayer = p
+			break
+		}
+	}
+
+	if welcomePlayer != nil {
+		// TODO (@dev-rodrigobaliza) send message about login another place
+		h.greetingMesssage(welcomePlayer, "disconnected (using another session)")
 	}
 }
 
@@ -109,20 +114,18 @@ func (h *Hub) processMessages() {
 		err := message.FromBytes(wsMessage.Data)
 		if err != nil {
 			log.Printf("!!! error parsing player websocket message [%s] from %s", wsMessage.Data, player)
-			h.gameProcessor.sendResponseError(player, nil, "invalid message")
+			h.gameProcessor.sendResponseError(player, nil, "invalid message", err)
 		} else {
-			h.debug("--- message [%s] from [%s]", wsMessage.Data, player)
-			go h.gameProcessor.Run(player, message)
+			h.debug("--- message received [%s] from [%s]", wsMessage.Data, player)
+			h.gameProcessor.ProcessPlayerMessage(player, message)
 		}
 	}
 }
 
 func (h *Hub) sendAll(message []byte) {
-	h.playersLock.RLock()
-	defer h.playersLock.RUnlock()
-
-	for player := range h.players {
-		if player.auth {
+	players := h.players.GetAllKeys()
+	for _, player := range players {
+		if player.user != nil {
 			select {
 			case player.send <- message:
 			default:
@@ -133,36 +136,37 @@ func (h *Hub) sendAll(message []byte) {
 }
 
 func (h *Hub) sendOne(wsMessage *WSMessage) {
-	h.playersLock.RLock()
-	defer h.playersLock.RUnlock()
-
-	for player := range h.players {
+	players := h.players.GetAllKeys()
+	for _, player := range players {
 		if wsMessage.Player == player {
 			select {
 			case player.send <- wsMessage.Data:
 			default:
 				h.delPlayer(player, true)
 			}
+
+			return
 		}
 	}
 }
 
-func (h *Hub) welcomeMesssage() map[string]interface{} {
-	var players []string
-	h.playersLock.RLock()
-	playersCount := len(h.players)
-	for player := range h.players {
-		players = append(players, player.id)
+func (h *Hub) greetingMesssage(player *Player, message string) {
+	// only authenticated players
+	players := make([]string, 0)
+	allPlayers := h.players.GetAllKeys()
+	for _, player := range allPlayers {
+		if player.user != nil {
+			players = append(players, player.uuid)
+		}
 	}
-	h.playersLock.RUnlock()
 
-	message := make(map[string]interface{})
-	message["server"] = h.cfg.Name
-	message["version"] = h.cfg.Version
-	message["players_count"] = playersCount
+	response := make(map[string]interface{})
+	response["server"] = h.cfg.Name
+	response["version"] = h.cfg.Version
+	response["players_count"] = len(players)
 	if h.cfg.Debug {
-		message["players"] = players
+		response["players"] = players
 	}
 
-	return message
+	h.gameProcessor.sendResponseSuccess(player, nil, message, response)
 }

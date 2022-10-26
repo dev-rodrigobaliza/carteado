@@ -59,8 +59,42 @@ func (s *UserService) Delete() error {
 	return errors.New("not implemented")
 }
 
-func (s *UserService) Get() error {
-	return errors.New("not implemented")
+func (s *UserService) Get(user *request.GetUser) (*response.User, []*response.ErrorValidation, error) {
+	// basic validation
+	if user.ID == 0 && user.Email == "" {
+		return nil, nil, errors.New("id and/or email not found")
+	}
+	// validate the input fields
+	validationErr := validate(user)
+	if validationErr != nil {
+		return nil, validationErr, nil
+	}
+	// get user
+	var u *model.User
+	var err error
+	if user.ID > 0 {
+		u, err = s.userRepository.FindByID(user.ID)
+		if err != nil || u == nil || u.ID == 0 {
+			return nil, nil, errors.New("user not found")
+		}
+		if user.Email != "" && user.Email != u.Email {
+			return nil, nil, errors.New("user not found")
+		}
+	} else {
+		u, err = s.userRepository.FindByEmail(user.Email)
+		if err != nil || u == nil || u.ID == 0 {
+			return nil, nil, errors.New("user not found")
+		}		
+	}
+
+	us := response.User{
+		ID: u.ID,
+		Name: u.Name,
+		Email: u.Email,
+		IsAdmin: u.IsAdmin,
+	}
+
+	return &us, nil, nil
 }
 
 func (s *UserService) Update() error {
