@@ -1,8 +1,7 @@
 package core
 
 import (
-	"errors"
-
+	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/pkg/safemap"
 )
 
@@ -29,11 +28,11 @@ func NewTable(owner, secret string, minPlayers, maxPlayers int, allowBots bool) 
 
 func (t *Table) AddPlayer(playerID string) error {
 	if t.HasPlayer(playerID) {
-		return errors.New("player already exists")
+		return errors.ErrExistsPlayer
 	}
 
 	if t.players.Size() >= t.maxPlayers {
-		return errors.New("table full")
+		return errors.ErrMaxPlayers
 	}
 
 	t.players.Insert(playerID, true)
@@ -48,11 +47,11 @@ func (t *Table) CheckSecret(secret string) bool {
 func (t *Table) DelPlayer(playerID string) error {
 	err := t.players.Delete(playerID)
 	if err != nil {
-		return errors.New("player not found")
+		return errors.ErrNotFoundPlayer
 	}
 
 	if t.players.Size() < t.minPlayers {
-		return errors.New("players count above minimum")
+		return errors.ErrMinPlayers
 	}
 
 	return nil

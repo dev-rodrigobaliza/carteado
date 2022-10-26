@@ -1,11 +1,10 @@
 package services
 
 import (
-	"errors"
-
 	"github.com/dev-rodrigobaliza/carteado/domain/model"
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
+	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/ports"
 )
 
@@ -25,13 +24,13 @@ func NewUserService(userRepository ports.IUserRepository) *UserService {
 func (s *UserService) Add(user *request.User) (*response.User, []*response.ErrorValidation, error) {
 	// basic validation
 	if user.Name == "" {
-		return nil, nil, errors.New("name not found")
+		return nil, nil, errors.ErrInvalidName
 	}
 	if user.Email == "" {
-		return nil, nil, errors.New("email not found")
+		return nil, nil, errors.ErrInvalidEmail
 	}
 	if user.Password == "" {
-		return nil, nil, errors.New("password not found")
+		return nil, nil, errors.ErrInvalidPassword
 	}
 	// validate the input fields
 	validationErr := validate(user)
@@ -46,9 +45,9 @@ func (s *UserService) Add(user *request.User) (*response.User, []*response.Error
 	}
 
 	us := response.User{
-		ID: u.ID,
-		Name: u.Name,
-		Email: u.Email,
+		ID:      u.ID,
+		Name:    u.Name,
+		Email:   u.Email,
 		IsAdmin: u.IsAdmin,
 	}
 
@@ -56,13 +55,13 @@ func (s *UserService) Add(user *request.User) (*response.User, []*response.Error
 }
 
 func (s *UserService) Delete() error {
-	return errors.New("not implemented")
+	return errors.ErrNotImplemented
 }
 
 func (s *UserService) Get(user *request.GetUser) (*response.User, []*response.ErrorValidation, error) {
 	// basic validation
 	if user.ID == 0 && user.Email == "" {
-		return nil, nil, errors.New("id and/or email not found")
+		return nil, nil, errors.ErrInvalidUserIDEmail
 	}
 	// validate the input fields
 	validationErr := validate(user)
@@ -75,22 +74,22 @@ func (s *UserService) Get(user *request.GetUser) (*response.User, []*response.Er
 	if user.ID > 0 {
 		u, err = s.userRepository.FindByID(user.ID)
 		if err != nil || u == nil || u.ID == 0 {
-			return nil, nil, errors.New("user not found")
+			return nil, nil, errors.ErrNotFoundUser
 		}
 		if user.Email != "" && user.Email != u.Email {
-			return nil, nil, errors.New("user not found")
+			return nil, nil, errors.ErrNotFoundUser
 		}
 	} else {
 		u, err = s.userRepository.FindByEmail(user.Email)
 		if err != nil || u == nil || u.ID == 0 {
-			return nil, nil, errors.New("user not found")
-		}		
+			return nil, nil, errors.ErrNotFoundUser
+		}
 	}
 
 	us := response.User{
-		ID: u.ID,
-		Name: u.Name,
-		Email: u.Email,
+		ID:      u.ID,
+		Name:    u.Name,
+		Email:   u.Email,
 		IsAdmin: u.IsAdmin,
 	}
 
@@ -98,5 +97,5 @@ func (s *UserService) Get(user *request.GetUser) (*response.User, []*response.Er
 }
 
 func (s *UserService) Update() error {
-	return errors.New("not implemented")
+	return errors.ErrNotImplemented
 }

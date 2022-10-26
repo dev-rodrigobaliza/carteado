@@ -1,10 +1,10 @@
 package model
 
 import (
-	"errors"
 	"time"
 
 	"github.com/alexedwards/argon2id"
+	"github.com/dev-rodrigobaliza/carteado/errors"
 )
 
 type User struct {
@@ -37,7 +37,7 @@ func (u *User) ComparePassword(password string) error {
 		return err
 	}
 	if !match {
-		return errors.New("invalid password")
+		return errors.ErrInvalidPassword
 	}
 
 	return nil

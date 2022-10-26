@@ -1,9 +1,8 @@
 package repositories
 
 import (
-	"errors"
-
 	"github.com/dev-rodrigobaliza/carteado/domain/model"
+	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/ports"
 	"gorm.io/gorm"
 )
@@ -25,38 +24,38 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 func (r *UserRepository) Add(user *model.User) error {
 	// basic validation
 	if user == nil {
-		return errors.New("user not found")
+		return errors.ErrInvalidUser
 	}
 	if user.ID > 0 {
-		return errors.New("user id invalid")
+		return errors.ErrInvalidUserID
 	}
 	if user.Name == "" {
-		return errors.New("user name not found")
+		return errors.ErrInvalidName
 	}
 	if user.Email == "" {
-		return errors.New("user name not found")
+		return errors.ErrInvalidEmail
 	}
 	if user.PasswordHash == "" {
-		return errors.New("user password not found")
+		return errors.ErrInvalidPassword
 	}
 	// add user
 	return r.db.Save(user).Error
 }
 
 func (r *UserRepository) Delete() error {
-	return errors.New("not implemented")
+	return errors.ErrNotImplemented
 }
 
 func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
 	// basic validation
 	if email == "" {
-		return nil, errors.New("email not found")
+		return nil, errors.ErrInvalidEmail
 	}
 	// search for user in database
 	var user model.User
-	r.db.Where("email = ?", email).First(&user)
-	if user.ID == 0 {
-		return nil, errors.New("user not found")
+	err := r.db.Where("email = ?", email).First(&user).Error
+	if err != nil || user.ID == 0 {
+		return nil, errors.ErrNotFoundUser
 	}
 
 	return &user, nil
@@ -65,19 +64,19 @@ func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
 func (r *UserRepository) FindByID(id uint64) (*model.User, error) {
 	// basic validation
 	if id == 0 {
-		return nil, errors.New("id not found")
+		return nil, errors.ErrInvalidUserID
 	}
 	// search for user in database
 	var user model.User
 	user.ID = id
 	err := r.db.First(&user).Error
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, errors.ErrNotFoundUser
 	}
 
 	return &user, nil
 }
 
 func (r *UserRepository) Update() error {
-	return errors.New("not implemented")
+	return errors.ErrNotImplemented
 }

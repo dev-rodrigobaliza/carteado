@@ -1,9 +1,8 @@
 package repositories
 
 import (
-	"errors"
-
 	"github.com/dev-rodrigobaliza/carteado/domain/model"
+	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/ports"
 	"gorm.io/gorm"
 )
@@ -25,10 +24,10 @@ func NewAuthRepository(db *gorm.DB) *AuthRepository {
 func (r *AuthRepository) Login(userID uint64, accessToken string) error {
 	// basic validation
 	if userID == 0 {
-		return errors.New("user id not found")
+		return errors.ErrInvalidUserID
 	}
 	if accessToken == "" {
-		return errors.New("access token not found")
+		return errors.ErrInvalidAccessToken
 	}
 	// clear previous login
 	var previous []model.Login
@@ -49,17 +48,17 @@ func (r *AuthRepository) Login(userID uint64, accessToken string) error {
 func (r *AuthRepository) Logout(userID uint64, accessToken string) error {
 	// basic validation
 	if userID == 0 {
-		return errors.New("user id not found")
+		return errors.ErrInvalidUserID
 	}
 	if accessToken == "" {
-		return errors.New("access token not found")
+		return errors.ErrInvalidAccessToken
 	}
 	// clear logins
 	var previous []model.Login
 	r.db.Where("user_id = ?", userID).Find(&previous)
 	// database validation
 	if len(previous) == 0 {
-		return errors.New("user not logged in")
+		return errors.ErrInvalidUserID
 	}
 
 	for _, login := range previous {
@@ -74,10 +73,10 @@ func (r *AuthRepository) Logout(userID uint64, accessToken string) error {
 func (r *AuthRepository) VerifyToken(userID uint64, accessToken string) error {
 	// basic validation
 	if userID == 0 {
-		return errors.New("user id not found")
+		return errors.ErrInvalidUserID
 	}
 	if accessToken == "" {
-		return errors.New("access token not found")
+		return errors.ErrInvalidAccessToken
 	}
 	// database validation
 	var login model.Login
@@ -86,7 +85,7 @@ func (r *AuthRepository) VerifyToken(userID uint64, accessToken string) error {
 		return err
 	}
 	if login.ID == 0 {
-		return errors.New("access token invalid")
+		return errors.ErrInvalidAccessToken
 	}
 
 	return nil

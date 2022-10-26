@@ -1,7 +1,10 @@
 package websocket
 
 import (
+	"time"
+
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
+	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/internal/core"
 )
 
@@ -15,6 +18,7 @@ func (g *GameProcessor) getGameStatusResponse(game core.IGame) map[string]interf
 	response["game_id"] = gameStatus.ID
 	response["game_type"] = gameStatus.GameType.String()
 	response["game_state"] = gameState
+	response["game_momentum"] = gameStatus.GameMomentum
 	if gameState != "starting" {
 		response["round"] = gameStatus.GameRound
 	}
@@ -79,7 +83,7 @@ func (g *GameProcessor) resourceGameCreate(player *Player, message *request.WSRe
 	// add game to game list
 	g.addGame(game)
 	// TODO (@dev-rodrigobaliza) should locate other games owned by this player and remove them???
-	player.gameID = game.GetStatus().ID
+	player.gameID = game.GetID()
 	// make response
 	response := g.getGameStatusResponse(game)
 	// send response
@@ -108,13 +112,13 @@ func (g *GameProcessor) resourceGameEnter(player *Player, message *request.WSReq
 		return
 	}
 	// enter game
-	err = game.EnterGame(player.uuid, secret)
+	err = game.Enter(player.uuid, secret)
 	if err != nil {
 		g.sendResponseError(player, message, "enter game failed", err)
 		return
 	}
 	// TODO (@dev-rodrigobaliza) check if player was in another game and remove it from there
-	player.gameID = game.GetStatus().ID
+	player.gameID = game.GetID()
 	// make reponse
 	response := g.getGameStatusResponse(game)
 	// send response
@@ -123,10 +127,32 @@ func (g *GameProcessor) resourceGameEnter(player *Player, message *request.WSReq
 	g.debug("=== game enter %v", response)
 }
 
+func (g *GameProcessor) resourceGameFinishGame(game core.IGame, force bool, err error) {
+	players := g.players.GetAllKeys()
+	// remove all players from this game
+	for _, player := range players {
+		if player.gameID == game.GetID() {
+			player.gameID = ""
+			// send the bad news
+			g.sendResponseError(player, nil, "game finished", err)
+		}
+	}
+	// wait some time
+	time.Sleep(time.Second * 10)
+	// set game state
+	game.Stop(force)
+	// remove the game
+	g.delGame(game)
+}
+
 func (g *GameProcessor) resourceGameLeave(player *Player, message *request.WSRequest) {
 	// input validation
 	gameID := g.getGameID(message)
 	if gameID == "" {
+		g.sendResponseError(player, message, "game id invalid", nil)
+		return
+	}
+	if gameID != player.gameID {
 		g.sendResponseError(player, message, "game id invalid", nil)
 		return
 	}
@@ -138,11 +164,15 @@ func (g *GameProcessor) resourceGameLeave(player *Player, message *request.WSReq
 		g.sendResponseError(player, message, "game id invalid", nil)
 		return
 	}
-	// enter game
-	err = game.LeaveGame(player.uuid)
+	// leave game
+	err = game.Leave(player.uuid)
 	if err != nil {
-		g.sendResponseError(player, message, "leave game failed", err)
-		return
+		if err != errors.ErrMinPlayers {
+			g.sendResponseError(player, message, "leave game failed", err)
+			return
+		}
+		// min players reached
+		go g.resourceGameFinishGame(game, true, err)
 	}
 	// send response
 	g.sendResponseSuccess(player, message, "leave game", nil)
@@ -166,7 +196,7 @@ func (g *GameProcessor) resourceGameRemove(player *Player, message *request.WSRe
 		return
 	}
 	// onwnership validation
-	if game.GetStatus().Owner != player.uuid {
+	if !player.user.IsAdmin || game.GetOwner() != player.uuid || game.GetOwner() != "" {
 		g.sendResponseError(player, message, "game id not owned by player", nil)
 		return
 	}
@@ -179,6 +209,41 @@ func (g *GameProcessor) resourceGameRemove(player *Player, message *request.WSRe
 	g.sendResponseSuccess(player, message, "game removed", response)
 	// debug log
 	g.debug("=== game remove %v", response)
+}
+
+func (g *GameProcessor) resourceGameStart(player *Player, message *request.WSRequest) {
+	// input validation
+	gameID := g.getGameID(message)
+	if gameID == "" {
+		g.sendResponseError(player, message, "game id invalid, nil", nil)
+		return
+	}
+	// database validation
+	// TODO (@dev-rodrigobaliza) database validation ???
+	// game validation
+	game, err := g.getGame(gameID)
+	if err != nil || game == nil {
+		g.sendResponseError(player, message, "game id invalid", nil)
+		return
+	}
+	// onwnership validation
+	if !player.user.IsAdmin || game.GetOwner() != player.uuid || game.GetOwner() != "" {
+		g.sendResponseError(player, message, "game id not owned by player", nil)
+		return
+	}
+	// start game
+	err = game.Play()
+	if err != nil {
+		g.sendResponseError(player, message, "game not started", err)
+		return
+	}
+	// make response
+	response := make(map[string]interface{})
+	response["game_id"] = player.gameID
+	// send response
+	g.sendResponseSuccess(player, message, "game started", response)
+	// debug log
+	g.debug("=== game start %v", response)
 }
 
 func (g *GameProcessor) resourceGameStatus(player *Player, message *request.WSRequest) {
@@ -217,6 +282,9 @@ func (g *GameProcessor) serviceGame(player *Player, message *request.WSRequest) 
 
 	case "remove":
 		g.resourceGameRemove(player, message)
+
+	case "start":
+		g.resourceGameStart(player, message)
 
 	case "status":
 		g.resourceGameStatus(player, message)

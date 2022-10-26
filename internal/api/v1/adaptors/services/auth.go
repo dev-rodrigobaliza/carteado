@@ -1,12 +1,12 @@
 package services
 
 import (
-	"errors"
 	"strconv"
 	"time"
 
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
+	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/ports"
 	"github.com/dev-rodrigobaliza/carteado/internal/security/paseto"
 )
@@ -35,10 +35,10 @@ func NewAuthService(authRepository ports.IAuthRepository, userRepository ports.I
 func (s *AuthService) Login(login *request.Login, ip string) (*response.Login, []*response.ErrorValidation, error) {
 	// basic validation
 	if login == nil {
-		return nil, nil, errors.New("login not provided")
+		return nil, nil, errors.ErrInvalidLogin
 	}
 	if ip == "" {
-		return nil, nil, errors.New("ip address not provided")
+		return nil, nil, errors.ErrInvalidIP
 	}
 	// validate the input fields
 	validationErr := validate(login)
@@ -87,10 +87,10 @@ func (s *AuthService) Login(login *request.Login, ip string) (*response.Login, [
 func (s *AuthService) Logout(userID uint64, accessToken string) error {
 	// basic validation
 	if userID == 0 {
-		return errors.New("user id not found")
+		return errors.ErrInvalidUserID
 	}
 	if accessToken == "" {
-		return errors.New("access token not found")
+		return errors.ErrInvalidAccessToken
 	}
 	// register logout and invalidate access token
 	err := s.authRepository.Logout(userID, accessToken)
@@ -104,14 +104,14 @@ func (s *AuthService) Logout(userID uint64, accessToken string) error {
 func (s *AuthService) VerifyToken(userID, accessToken string) error {
 	// basic validation
 	if userID == "" {
-		return errors.New("user id not found")
+		return errors.ErrInvalidUserID
 	}
 	id, err := strconv.Atoi(userID)
 	if err != nil {
 		return err
 	}
 	if accessToken == "" {
-		return errors.New("access token not found")
+		return errors.ErrInvalidAccessToken
 	}
 	// verify token
 	err = s.authRepository.VerifyToken(uint64(id), accessToken)
@@ -125,7 +125,7 @@ func (s *AuthService) VerifyToken(userID, accessToken string) error {
 func (s *AuthService) createAccessToken(userID uint64) (string, *time.Time, error) {
 	// basic validation
 	if userID == 0 {
-		return "", nil, errors.New("user id not found")
+		return "", nil, errors.ErrInvalidUserID
 	}
 	id := strconv.FormatUint(userID, 10)
 	// create access accessToken

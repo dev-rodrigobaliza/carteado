@@ -3,22 +3,19 @@ package core
 type GameState int8
 
 func (g GameState) String() string {
-	return [...]string{"unknown", "starting", "betting", "playing", "finished"}[g]
+	return [...]string{"unknown", "start", "play", "finish"}[g]
 }
 
 func StringToGameState(gameState string) GameState {
 	switch gameState {
-	case "starting":
-		return GameStateStarting
+	case "start":
+		return GameStateStart
 
-	case "betting":
-		return GameStateBetting
+	case "play":
+		return GameStatePlay
 
-	case "playing":
-		return GameStatePlaying
-
-	case "finished":
-		return GameStateFinished
+	case "finish":
+		return GameStateFinish
 
 	default:
 		return GameStateUnknown
@@ -27,8 +24,7 @@ func StringToGameState(gameState string) GameState {
 
 const (
 	GameStateUnknown GameState = iota
-	GameStateStarting
-	GameStateBetting
-	GameStatePlaying
-	GameStateFinished
+	GameStateStart
+	GameStatePlay
+	GameStateFinish
 )

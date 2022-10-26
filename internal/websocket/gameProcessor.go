@@ -16,13 +16,15 @@ var (
 type GameProcessor struct {
 	cfg        *config.App
 	games      *safemap.SafeMap[string, core.IGame]
+	players    *safemap.SafeMap[*Player, bool]
 	appService *services.AppService
 }
 
-func NewGameProcessor(cfg *config.App, appService *services.AppService) *GameProcessor {
+func NewGameProcessor(cfg *config.App, players *safemap.SafeMap[*Player, bool], appService *services.AppService) *GameProcessor {
 	return &GameProcessor{
 		cfg:        cfg,
 		games:      safemap.New[string, core.IGame](),
+		players:    players,
 		appService: appService,
 	}
 }
@@ -48,12 +50,11 @@ func (g *GameProcessor) ProcessPlayerMessage(player *Player, message request.WSR
 }
 
 func (g *GameProcessor) addGame(game core.IGame) {
-	g.games.Insert(game.GetStatus().ID, game)
+	g.games.Insert(game.GetID(), game)
 }
 
 func (g *GameProcessor) delGame(game core.IGame) error {
-	// TODO (@dev-rodrigobaliza) notify all players the game will be removed???
-	return g.games.Delete(game.GetStatus().ID)
+	return g.games.Delete(game.GetID())
 }
 
 func (g *GameProcessor) getGame(id string) (core.IGame, error) {

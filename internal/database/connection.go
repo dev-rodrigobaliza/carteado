@@ -1,10 +1,10 @@
 package database
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/dev-rodrigobaliza/carteado/domain/config"
+	"github.com/dev-rodrigobaliza/carteado/errors"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlserver"
@@ -52,6 +52,6 @@ func createConnection(cfg *config.App, gc *gorm.Config) (*gorm.DB, error) {
 		)
 		return gorm.Open(mysql.Open(dbConnection), gc)
 	default:
-		return nil, errors.New("invalid database type")
+		return nil, errors.ErrInvalidDatabaseType
 	}
 }

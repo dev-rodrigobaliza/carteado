@@ -23,15 +23,18 @@ type Hub struct {
 }
 
 func NewHub(cfg *config.App, appService *services.AppService) *Hub {
+	players := safemap.New[*Player, bool]()
+	gameProcessor := NewGameProcessor(cfg, players, appService)
+
 	hub := &Hub{
 		cfg:           cfg,
-		players:       safemap.New[*Player, bool](),
+		players:       players,
 		broadcast:     make(chan []byte),
 		wsMessage:     make(chan *WSMessage, BUFFER_SIZE),
 		add:           make(chan *Player),
 		remove:        make(chan *Player),
 		done:          make(chan struct{}),
-		gameProcessor: NewGameProcessor(cfg, appService),
+		gameProcessor: gameProcessor,
 	}
 	go hub.Run()
 

@@ -1,10 +1,12 @@
 package core
 
 type IGame interface {
-	EnterGame(player, secret string) error
+	GetID() string
+	GetOwner() string
 	GetStatus() *GameStatus
 	GetTable() *Table
-	LeaveGame(player string) error
-	Start() error
-	isPrivate() bool
+	Enter(player, secret string) error
+	Leave(player string) error
+	Play() error
+	Stop(force bool) error
 }
