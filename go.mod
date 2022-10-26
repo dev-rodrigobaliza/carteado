@@ -9,6 +9,7 @@ require (
 	github.com/goccy/go-json v0.9.11
 	github.com/gofiber/fiber/v2 v2.39.0
 	github.com/gofiber/websocket/v2 v2.1.1
+	github.com/gorilla/websocket v1.5.0
 	github.com/sony/sonyflake v1.1.0
 	github.com/vk-rv/pvx v0.0.0-20210912195928-ac00bc32f6e7
 	gorm.io/driver/mysql v1.4.3

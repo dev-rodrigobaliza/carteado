@@ -5,13 +5,21 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "api",
+            "name": "carteado",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/api/main.go",
             "args": [],
             "buildFlags": "-ldflags='-X main.debug=true -X main.appVersion=0.0.0-debug -X main.appDate=00/00/0000'",
+        },
+        {
+            "name": "client",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/client/main.go",
+            "args": [],
         }
     ]
 }

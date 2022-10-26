@@ -7,13 +7,14 @@ import (
 )
 
 type Player struct {
-	hub   *Hub
-	conn  *websocket.Conn
-	send  chan []byte
-	addr  string
-	id    string
-	auth  bool
-	since time.Time
+	hub    *Hub
+	conn   *websocket.Conn
+	send   chan []byte
+	addr   string
+	id     string
+	gameID string
+	auth   bool
+	since  time.Time
 }
 
 func NewPlayer(hub *Hub, conn *websocket.Conn) {
