@@ -1,4 +1,4 @@
-package websocket
+package table
 
 type WSMessage struct {
 	Player *Player

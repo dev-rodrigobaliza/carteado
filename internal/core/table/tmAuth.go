@@ -1,4 +1,4 @@
-package websocket
+package table
 
 import (
 	"strconv"
@@ -6,7 +6,7 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
 )
 
-func (g *GameProcessor) resourceAuthLogin(player *Player, message *request.WSRequest) {
+func (g *TableManager) resourceAuthLogin(player *Player, message *request.WSRequest) {
 	token, ok := message.Data["token"].(string)
 	if !ok {
 		g.sendResponseError(player, message, "token invalid", nil)
@@ -48,7 +48,7 @@ func (g *GameProcessor) resourceAuthLogin(player *Player, message *request.WSReq
 	g.debug("=== auth login %v", response)
 }
 
-func (g *GameProcessor) serviceAuth(player *Player, message *request.WSRequest) {
+func (g *TableManager) serviceAuth(player *Player, message *request.WSRequest) {
 	switch message.Resource {
 	case "login":
 		g.resourceAuthLogin(player, message)

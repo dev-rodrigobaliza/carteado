@@ -5,8 +5,8 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/adaptors/handlers"
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/adaptors/repositories"
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/adaptors/services"
+	"github.com/dev-rodrigobaliza/carteado/internal/core/table"
 	"github.com/dev-rodrigobaliza/carteado/internal/database"
-	"github.com/dev-rodrigobaliza/carteado/internal/websocket"
 	"github.com/dev-rodrigobaliza/carteado/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -17,7 +17,7 @@ type Server struct {
 	config *config.App
 	db     *database.Database
 	app    *fiber.App
-	ws     *websocket.Hub
+	hub    *table.Hub
 }
 
 func New(cfg *config.App) *Server {
@@ -63,7 +63,7 @@ func New(cfg *config.App) *Server {
 	handlers.Load(appService, api)
 
 	ws := app.Group("ws")
-	s.websocketLoad(ws, appService)
+	s.hubLoad(ws, appService)
 
 	app.Use(s.error404())
 

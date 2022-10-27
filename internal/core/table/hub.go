@@ -1,4 +1,4 @@
-package websocket
+package table
 
 import (
 	"log"
@@ -12,29 +12,29 @@ import (
 const BUFFER_SIZE = 1024
 
 type Hub struct {
-	cfg           *config.App
-	players       *safemap.SafeMap[*Player, bool]
-	broadcast     chan []byte
-	wsMessage     chan *WSMessage
-	add           chan *Player
-	remove        chan *Player
-	done          chan struct{}
-	gameProcessor *GameProcessor
+	cfg          *config.App
+	players      *safemap.SafeMap[string, *Player]
+	broadcast    chan []byte
+	wsMessage    chan *WSMessage
+	add          chan *Player
+	remove       chan *Player
+	done         chan struct{}
+	tableManager *TableManager
 }
 
 func NewHub(cfg *config.App, appService *services.AppService) *Hub {
-	players := safemap.New[*Player, bool]()
-	gameProcessor := NewGameProcessor(cfg, players, appService)
+	players := safemap.New[string, *Player]()
+	gameProcessor := NewTableManager(cfg, players, appService)
 
 	hub := &Hub{
-		cfg:           cfg,
-		players:       players,
-		broadcast:     make(chan []byte),
-		wsMessage:     make(chan *WSMessage, BUFFER_SIZE),
-		add:           make(chan *Player),
-		remove:        make(chan *Player),
-		done:          make(chan struct{}),
-		gameProcessor: gameProcessor,
+		cfg:          cfg,
+		players:      players,
+		broadcast:    make(chan []byte),
+		wsMessage:    make(chan *WSMessage, BUFFER_SIZE),
+		add:          make(chan *Player),
+		remove:       make(chan *Player),
+		done:         make(chan struct{}),
+		tableManager: gameProcessor,
 	}
 	go hub.Run()
 
@@ -74,7 +74,7 @@ func (h *Hub) Stop() {
 }
 
 func (h *Hub) addPlayer(player *Player) {
-	h.players.Insert(player, true)
+	h.players.Insert(player.uuid, player)
 }
 
 func (h *Hub) debug(format string, v ...any) {
@@ -88,13 +88,13 @@ func (h *Hub) delPlayer(player *Player, closePlayer bool) error {
 		close(player.send)
 	}
 
-	return h.players.Delete(player)
+	return h.players.Delete(player.uuid)
 }
 
 func (h *Hub) loginPlayer(player *Player) {
 	var welcomePlayer *Player
 	// if player has previous login and remove it
-	players := h.players.GetAllKeys()
+	players := h.players.GetAllValues()
 	for _, p := range players {
 		if p != player && p.user != nil && p.user.ID == player.user.ID {
 			p.user = nil
@@ -117,16 +117,16 @@ func (h *Hub) processMessages() {
 		err := message.FromBytes(wsMessage.Data)
 		if err != nil {
 			log.Printf("!!! error parsing player websocket message [%s] from %s", wsMessage.Data, player)
-			h.gameProcessor.sendResponseError(player, nil, "invalid message", err)
+			h.tableManager.sendResponseError(player, nil, "invalid message", err)
 		} else {
 			h.debug("--- message received [%s] from [%s]", wsMessage.Data, player)
-			h.gameProcessor.ProcessPlayerMessage(player, message)
+			h.tableManager.ProcessPlayerMessage(player, message)
 		}
 	}
 }
 
 func (h *Hub) sendAll(message []byte) {
-	players := h.players.GetAllKeys()
+	players := h.players.GetAllValues()
 	for _, player := range players {
 		if player.user != nil {
 			select {
@@ -139,7 +139,7 @@ func (h *Hub) sendAll(message []byte) {
 }
 
 func (h *Hub) sendOne(wsMessage *WSMessage) {
-	players := h.players.GetAllKeys()
+	players := h.players.GetAllValues()
 	for _, player := range players {
 		if wsMessage.Player == player {
 			select {
@@ -156,7 +156,7 @@ func (h *Hub) sendOne(wsMessage *WSMessage) {
 func (h *Hub) greetingMesssage(player *Player, message string) {
 	// only authenticated players
 	players := make([]string, 0)
-	allPlayers := h.players.GetAllKeys()
+	allPlayers := h.players.GetAllValues()
 	for _, player := range allPlayers {
 		if player.user != nil {
 			players = append(players, player.uuid)
@@ -171,5 +171,5 @@ func (h *Hub) greetingMesssage(player *Player, message string) {
 		response["players"] = players
 	}
 
-	h.gameProcessor.sendResponseSuccess(player, nil, message, response)
+	h.tableManager.sendResponseSuccess(player, nil, message, response)
 }

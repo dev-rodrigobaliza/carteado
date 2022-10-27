@@ -2,13 +2,13 @@ package server
 
 import (
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/adaptors/services"
-	"github.com/dev-rodrigobaliza/carteado/internal/websocket"
+	"github.com/dev-rodrigobaliza/carteado/internal/core/table"
 	"github.com/gofiber/fiber/v2"
 	fws "github.com/gofiber/websocket/v2"
 )
 
-func (s *Server) websocketLoad(r fiber.Router, appService *services.AppService) {
-	s.ws = websocket.NewHub(s.config, appService)
+func (s *Server) hubLoad(r fiber.Router, appService *services.AppService) {
+	s.hub = table.NewHub(s.config, appService)
 
 	r.Use(s.upgradeHandler)
 	// websocket connection handler
@@ -17,6 +17,6 @@ func (s *Server) websocketLoad(r fiber.Router, appService *services.AppService) 
 			c.Close()
 		}()
 
-		websocket.NewPlayer(s.ws, c)
+		table.NewPlayer(s.hub, c)
 	}))
 }

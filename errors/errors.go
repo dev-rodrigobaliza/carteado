@@ -16,6 +16,8 @@ var (
 	ErrInvalidAccessToken  = errors.New("access token invalid")
 	ErrInvalidDatabaseType = errors.New("database type invalid")
 	ErrInvalidEmail        = errors.New("email invalid")
+	ErrInvalidGameMode     = errors.New("game mode invalid")
+	ErrInvalidGameState    = errors.New("game state invalid")
 	ErrInvalidIP           = errors.New("ip address invalid")
 	ErrInvalidLogin        = errors.New("login invalid")
 	ErrInvalidName         = errors.New("name invalid")

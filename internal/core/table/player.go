@@ -1,4 +1,4 @@
-package websocket
+package table
 
 import (
 	"time"
@@ -9,14 +9,14 @@ import (
 )
 
 type Player struct {
-	hub    *Hub
-	conn   *websocket.Conn
-	user   *response.User
-	send   chan []byte
-	addr   string
-	uuid   string
-	gameID string
-	since  time.Time
+	hub     *Hub
+	conn    *websocket.Conn
+	user    *response.User
+	send    chan []byte
+	addr    string
+	uuid    string
+	tableID string
+	since   time.Time
 }
 
 func NewPlayer(hub *Hub, conn *websocket.Conn) {

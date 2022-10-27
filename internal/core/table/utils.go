@@ -1,4 +1,4 @@
-package websocket
+package table
 
 import (
 	"log"
@@ -7,23 +7,22 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
 )
 
-func (g *GameProcessor) debug(format string, v ...any) {
+func (g *TableManager) debug(format string, v ...any) {
 	if g.cfg.Debug {
 		log.Printf(format, v...)
 	}
 }
 
-func (g *GameProcessor) getGameID(message *request.WSRequest) string {
-	gameID, ok := message.Data["game_id"].(string)
+func (g *TableManager) getTableID(message *request.WSRequest) string {
+	tableID, ok := message.Data["table_id"].(string)
 	if !ok {
 		return ""
 	}
 
-	return gameID
+	return tableID
 }
 
-
-func (g *GameProcessor) sendResponse(player *Player, request *request.WSRequest, status, message string, data map[string]interface{}) {
+func (g *TableManager) sendResponse(player *Player, request *request.WSRequest, status, message string, data map[string]interface{}) {
 	response := &response.WSResponse{
 		Status:  status,
 		Message: message,
@@ -38,7 +37,7 @@ func (g *GameProcessor) sendResponse(player *Player, request *request.WSRequest,
 	player.Send(response.ToBytes())
 }
 
-func (g *GameProcessor) sendResponseError(player *Player, request *request.WSRequest, message string, err error) {
+func (g *TableManager) sendResponseError(player *Player, request *request.WSRequest, message string, err error) {
 	var data map[string]interface{}
 	if err != nil && g.cfg.Debug {
 		data = make(map[string]interface{})
@@ -48,6 +47,6 @@ func (g *GameProcessor) sendResponseError(player *Player, request *request.WSReq
 	g.sendResponse(player, request, "error", message, data)
 }
 
-func (g *GameProcessor) sendResponseSuccess(player *Player, request *request.WSRequest, message string, data map[string]interface{}) {
+func (g *TableManager) sendResponseSuccess(player *Player, request *request.WSRequest, message string, data map[string]interface{}) {
 	g.sendResponse(player, request, "success", message, data)
 }

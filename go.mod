@@ -12,6 +12,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/sony/sonyflake v1.1.0
 	github.com/vk-rv/pvx v0.0.0-20210912195928-ac00bc32f6e7
+	github.com/xhit/go-str2duration/v2 v2.0.0
 	gorm.io/driver/mysql v1.4.3
 	gorm.io/driver/postgres v1.4.5
 	gorm.io/driver/sqlserver v1.4.1
