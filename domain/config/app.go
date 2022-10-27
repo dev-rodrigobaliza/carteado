@@ -2,20 +2,23 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
+	"time"
+
+	"github.com/dev-rodrigobaliza/carteado/errors"
 )
 
 type App struct {
-	Date     string    `json:"-"`
-	MadeBy   string    `json:"-"`
-	Name     string    `json:"-"`
-	Version  string    `json:"-"`
-	Debug    bool      `json:"-"`
-	Timezone string    `json:"timezone,omitempty"`
-	Database *Database `json:"database,omitempty"`
-	HTTP     *HTTP     `json:"http,omitempty"`
-	Security *Security `json:"security,omitempty"`
+	Date      string    `json:"-"`
+	MadeBy    string    `json:"-"`
+	Name      string    `json:"-"`
+	Version   string    `json:"-"`
+	Debug     bool      `json:"-"`
+	StartedAt time.Time `json:"-"`
+	Timezone  string    `json:"timezone,omitempty"`
+	Database  *Database `json:"database,omitempty"`
+	HTTP      *HTTP     `json:"http,omitempty"`
+	Security  *Security `json:"security,omitempty"`
 }
 
 func NewApp(name, version, date, madeBy string, debug bool) *App {
@@ -31,7 +34,7 @@ func NewApp(name, version, date, madeBy string, debug bool) *App {
 func (a *App) LoadFromFile(filename string) error {
 	configFile, err := os.Open(filename)
 	if err != nil {
-		return fmt.Errorf("failed to open config file (%s)", filename)
+		return errors.ErrFailedOpenFileConfig
 	}
 
 	defer configFile.Close()
@@ -39,7 +42,7 @@ func (a *App) LoadFromFile(filename string) error {
 
 	err = jsonParser.Decode(a)
 	if err != nil {
-		return fmt.Errorf("failed to parse config file (%s)", filename)
+		return errors.ErrFailedParseFileConfig
 	}
 
 	return nil

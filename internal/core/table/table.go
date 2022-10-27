@@ -1,12 +1,12 @@
 package table
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/dev-rodrigobaliza/carteado/consts"
 	gm "github.com/dev-rodrigobaliza/carteado/domain/core/game"
 	"github.com/dev-rodrigobaliza/carteado/domain/core/table"
+	"github.com/dev-rodrigobaliza/carteado/domain/response"
 	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/game"
 	"github.com/dev-rodrigobaliza/carteado/pkg/safemap"
@@ -34,10 +34,8 @@ func NewTable(owner *Player, secret string, minPlayers, maxPlayers int, allowBot
 		return nil, err
 	}
 
-	id := "gid-" + utils.NewUUID()
-
 	table := &Table{
-		id:         id,
+		id:         utils.NewUUID(consts.TABLE_PREFIX_ID),
 		owner:      owner.uuid,
 		secret:     secret,
 		minPlayers: minPlayers,
@@ -110,7 +108,10 @@ func (t *Table) DelPlayer(player string) error {
 		t.owner = ""
 	}
 	// validate table rules
-	if t.players.Size() < t.minPlayers {
+	if t.players.IsEmpty() {
+		return errors.ErrEmptyTable
+	}
+	if t.state != table.StateStart && t.players.Size() < t.minPlayers {
 		return errors.ErrMinPlayers
 	}
 
@@ -169,10 +170,10 @@ func (t *Table) IsPrivate() bool {
 func (t *Table) Play() error {
 	playersCount := t.players.Size()
 	if playersCount < t.minPlayers {
-		return fmt.Errorf("%d players not enough, expect min %d players", playersCount, t.minPlayers)
+		return errors.ErrNotEnoughPlayers
 	}
 	if t.state != table.StateStart {
-		return fmt.Errorf("game already started")
+		return errors.ErrStartedGame
 	}
 	// TODO (@dev-rodrigobaliza) more game conditions to start ???
 	// TODO (@dev-rodrigobaliza) set players order
@@ -183,7 +184,22 @@ func (t *Table) Play() error {
 }
 
 func (t *Table) Stop(force bool) {
-	t.done <- true
+	// TODO (@dev-rodrigobaliza) mayde do a little housekeeping here
+	if t.state == table.StatePlay {
+		t.done <- true
+	}
+}
+
+func (t *Table) ToResponse() *response.Table {
+	pls := make([]*response.Player, 0)
+	players := t.players.GetAllValues()
+	for _, player := range players {
+		pls = append(pls, player.ToResponse())
+	}
+
+	ta := response.NewTable(t.id, t.gameMode.String(), t.owner, t.IsPrivate(), pls)
+
+	return ta
 }
 
 func (t *Table) loop() {
@@ -193,7 +209,7 @@ func (t *Table) loop() {
 		return
 	}
 
-	ticker := time.NewTicker(time.Millisecond * consts.LOOP_INTERVAL)
+	ticker := time.NewTicker(time.Millisecond * consts.TABLE_INTERVAL_LOOP)
 
 loop:
 	for {

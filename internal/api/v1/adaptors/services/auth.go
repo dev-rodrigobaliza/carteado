@@ -1,7 +1,6 @@
 package services
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
@@ -9,6 +8,7 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/ports"
 	"github.com/dev-rodrigobaliza/carteado/internal/security/paseto"
+	"github.com/dev-rodrigobaliza/carteado/utils"
 )
 
 type AuthService struct {
@@ -106,7 +106,7 @@ func (s *AuthService) VerifyToken(userID, accessToken string) error {
 	if userID == "" {
 		return errors.ErrInvalidUserID
 	}
-	id, err := strconv.Atoi(userID)
+	id, err := utils.StringToUint64(userID)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (s *AuthService) createAccessToken(userID uint64) (string, *time.Time, erro
 	if userID == 0 {
 		return "", nil, errors.ErrInvalidUserID
 	}
-	id := strconv.FormatUint(userID, 10)
+	id := utils.Uint64ToString(userID)
 	// create access accessToken
 	accessToken, err := Security.CreateToken(id, ExpireTime)
 	if err != nil {

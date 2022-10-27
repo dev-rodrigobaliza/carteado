@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/dev-rodrigobaliza/carteado/consts"
 	"github.com/dev-rodrigobaliza/carteado/domain/config"
 	"github.com/dev-rodrigobaliza/carteado/internal/server"
 )
@@ -14,10 +15,11 @@ func NewApp(madeBy, name, version, date string, debug bool) error {
 	start := time.Now()
 
 	c := config.NewApp(name, version, date, madeBy, debug)
-	err := c.LoadFromFile("config.json")
+	err := c.LoadFromFile(consts.APP_CONFIG_FILENAME)
 	if err != nil {
 		return err
 	}
+	c.StartedAt = start
 
 	showInfo(c)
 	initSecurity(c)

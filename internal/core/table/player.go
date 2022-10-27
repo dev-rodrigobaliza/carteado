@@ -3,6 +3,7 @@ package table
 import (
 	"time"
 
+	"github.com/dev-rodrigobaliza/carteado/consts"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
 	"github.com/dev-rodrigobaliza/carteado/utils"
 	"github.com/gofiber/websocket/v2"
@@ -42,7 +43,7 @@ func (p *Player) Login(user *response.User) bool {
 	userOut := (p.user == nil || p.user.ID != user.ID)
 	if userOut {
 		p.user = user
-		p.uuid = "pid-" + utils.NewUUID()
+		p.uuid = utils.NewUUID(consts.PLAYER_PREFIX_ID)
 		p.since = time.Now()
 	}
 
@@ -53,6 +54,12 @@ func (p *Player) Login(user *response.User) bool {
 
 func (p *Player) String() string {
 	return p.addr
+}
+
+func (p *Player) ToResponse() *response.Player {
+	player := response.NewPlayer(p.uuid, p.user.Name)
+
+	return player
 }
 
 func (p *Player) read() {

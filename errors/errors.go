@@ -3,15 +3,12 @@ package errors
 import "errors"
 
 var (
+	ErrEmptyTable = errors.New("table is empty")
+
 	ErrExistsPlayer = errors.New("player already exists")
 
-	ErrMaxPlayers = errors.New("players count over maximum")
-	ErrMinPlayers = errors.New("players count above minimum")
-
-	ErrNotFoundPlayer = errors.New("player not found")
-	ErrNotFoundUser   = errors.New("user not found")
-
-	ErrNotImplemented = errors.New("not implemented")
+	ErrFailedOpenFileConfig  = errors.New("failed to open config file")
+	ErrFailedParseFileConfig = errors.New("failed to parse config file")
 
 	ErrInvalidAccessToken  = errors.New("access token invalid")
 	ErrInvalidDatabaseType = errors.New("database type invalid")
@@ -25,4 +22,18 @@ var (
 	ErrInvalidUser         = errors.New("user invalid")
 	ErrInvalidUserID       = errors.New("user id invalid")
 	ErrInvalidUserIDEmail  = errors.New("user id and/or email invalid")
+
+	ErrMaxPlayers = errors.New("players count over maximum")
+	ErrMinPlayers = errors.New("players count above minimum")
+
+	ErrNotEnoughPlayers = errors.New("players not enough")
+
+	ErrNotFoundPlayer = errors.New("player not found")
+	ErrNotFoundUser   = errors.New("user not found")
+
+	ErrNotImplemented = errors.New("not implemented")
+
+	ErrStartedGame = errors.New("game already started")
+
+	ErrUnauthorized = errors.New("unauthorized")
 )

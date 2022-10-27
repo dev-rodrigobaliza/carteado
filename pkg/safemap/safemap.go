@@ -84,6 +84,13 @@ func (s *SafeMap[K, V]) Insert(key K, value V) {
 	s.data[key] = value
 }
 
+func (s *SafeMap[K, V]) IsEmpty() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return len(s.data) == 0	
+}
+
 func (s *SafeMap[K, V]) Size() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

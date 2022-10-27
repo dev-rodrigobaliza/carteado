@@ -1,3 +1,4 @@
+// TODO (@dev-rodrigobaliza) this belongs to the websocket package, need to make the player read/write with channels !!!
 package table
 
 import (

@@ -15,11 +15,11 @@ func init() {
 	}
 }
 
-func NewUUID() string {
+func NewUUID(prefix string) string {
 	id, err := sf.NextID()
 	if err != nil {
 		return RandomString(15)
 	}
 
-	return fmt.Sprintf("%x", id)
+	return fmt.Sprintf("%s%x", prefix, id)
 }

@@ -28,34 +28,37 @@ func NewTableManager(cfg *config.App, players *safemap.SafeMap[string, *Player],
 	}
 }
 
-func (g *TableManager) ProcessPlayerMessage(player *Player, message request.WSRequest) {
+func (t *TableManager) ProcessPlayerMessage(player *Player, message request.WSRequest) {
 	if message.Service == "auth" {
-		g.serviceAuth(player, &message)
+		t.serviceAuth(player, &message)
 		return
 	}
 
 	if player.user == nil {
-		g.sendResponseError(player, &message, "player unauthenticated", nil)
+		t.sendResponseError(player, &message, "player unauthenticated", nil)
 		return
 	}
 
 	switch message.Service {
+	case "admin":
+		t.serviceAdmin(player, &message)
+
 	case "table":
-		g.serviceTable(player, &message)
+		t.serviceTable(player, &message)
 
 	default:
-		g.sendResponseError(player, &message, "service not found", nil)
+		t.sendResponseError(player, &message, "service not found", nil)
 	}
 }
 
-func (g *TableManager) addTable(table *Table) {
-	g.tables.Insert(table.GetID(), table)
+func (t *TableManager) addTable(table *Table) {
+	t.tables.Insert(table.GetID(), table)
 }
 
-func (g *TableManager) delTable(table *Table) error {
-	return g.tables.Delete(table.GetID())
+func (t *TableManager) delTable(table *Table) error {
+	return t.tables.Delete(table.GetID())
 }
 
-func (g *TableManager) getTable(id string) (*Table, error) {
-	return g.tables.GetOneValue(id)
+func (t *TableManager) getTable(id string) (*Table, error) {
+	return t.tables.GetOneValue(id)
 }

@@ -4,39 +4,9 @@ import (
 	"time"
 
 	"github.com/dev-rodrigobaliza/carteado/domain/core/game"
-	tbl "github.com/dev-rodrigobaliza/carteado/domain/core/table"
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
 	"github.com/dev-rodrigobaliza/carteado/errors"
 )
-
-func (t *TableManager) getTableStatusResponse(table *Table) map[string]interface{} {
-	// get table status
-	tableStatus := table.GetStatus()
-	// make reponse
-	response := make(map[string]interface{})
-	response["table_id"] = tableStatus.ID
-	response["table_owner"] = tableStatus.Owner
-	if tableStatus.State == tbl.StateFinish {
-		response["table_winners"] = tableStatus.Winners
-	}
-	response["min_players"] = table.GetMinPlayers()
-	response["max_players"] = table.GetMaxPlayers()
-	response["player_count"] = tableStatus.PlayerCount
-	if tableStatus.State != tbl.StateStart {
-		response["game_round"] = tableStatus.GameRound
-	}
-	response["allow_bots"] = table.GetAllowBots()
-	response["private"] = table.IsPrivate()
-	response["game_mode"] = tableStatus.GameMode.String()
-	if tableStatus.State == tbl.StatePlay {
-		response["game_state"] = tableStatus.GameState.String()
-	}
-	if t.cfg.Debug {
-		response["players"] = table.GetPlayers()
-	}
-
-	return response
-}
 
 func (t *TableManager) resourceTableAddPlayer(player *Player, message *request.WSRequest) {
 	// input validation
@@ -124,7 +94,10 @@ func (t *TableManager) resourceTableCreate(player *Player, message *request.WSRe
 	}
 	// add table to table list
 	t.addTable(table)
-	// TODO (@dev-rodrigobaliza) should locate other tables owned by this player and remove them???
+	// if player is registered in other table, remove from there and register here
+	if player.tableID != "" {
+		t.resourceTableRemovePlayer(player, message, player.tableID)
+	}
 	player.tableID = table.GetID()
 	// make response
 	response := t.getTableStatusResponse(table)
@@ -134,176 +107,188 @@ func (t *TableManager) resourceTableCreate(player *Player, message *request.WSRe
 	t.debug("=== table create %v", response)
 }
 
-func (g *TableManager) resourceTableDelete(player *Player, message *request.WSRequest) {
+func (t *TableManager) resourceTableDelete(player *Player, message *request.WSRequest) {
 	// input validation
-	tableID := g.getTableID(message)
+	tableID := t.getTableID(message)
 	if tableID == "" {
-		g.sendResponseError(player, message, "table id invalid, nil", nil)
+		t.sendResponseError(player, message, "table id invalid, nil", nil)
 		return
 	}
 	if tableID != player.tableID {
-		g.sendResponseError(player, message, "table id invalid", nil)
+		t.sendResponseError(player, message, "table id invalid", nil)
 		return
 	}
 	// database validation
 	// TODO (@dev-rodrigobaliza) database validation ???
 	// table validation
-	table, err := g.getTable(tableID)
+	table, err := t.getTable(tableID)
 	if err != nil || table == nil {
-		g.sendResponseError(player, message, "table id invalid", nil)
+		t.sendResponseError(player, message, "table id invalid", nil)
 		return
 	}
 	// onwnership validation
 	if !player.user.IsAdmin || table.GetStatus().Owner != player.uuid || table.GetStatus().Owner != "" {
-		g.sendResponseError(player, message, "table id not owned by player", nil)
+		t.sendResponseError(player, message, "table id not owned by player", nil)
 		return
 	}
 	// remove table
-	g.delTable(table)
+	t.delTable(table)
 	// make response
 	response := make(map[string]interface{})
 	response["table_id"] = player.tableID
 	// send response
-	g.sendResponseSuccess(player, message, "table removed", response)
+	t.sendResponseSuccess(player, message, "table removed", response)
 	// debug log
-	g.debug("=== table remove %v", response)
+	t.debug("=== table remove %v", response)
 }
 
-func (g *TableManager) resourceTableRemovePlayer(player *Player, message *request.WSRequest) {
-	// input validation
-	tableID := g.getTableID(message)
-	if tableID == "" {
-		g.sendResponseError(player, message, "table id invalid", nil)
-		return
-	}
-	if tableID != player.tableID {
-		g.sendResponseError(player, message, "table id invalid", nil)
-		return
+func (t *TableManager) resourceTableRemovePlayer(player *Player, message *request.WSRequest, tableID string) {
+	// empty tableID means request is external (client)
+	// otherwise request is internal, (server, probably player leaving one table to create another)
+	internal := (tableID != "")
+
+	if !internal {
+		// input validation
+		tableID = t.getTableID(message)
+		if tableID == "" {
+			t.sendResponseError(player, message, "table id invalid", nil)
+			return
+		}
+		if tableID != player.tableID {
+			t.sendResponseError(player, message, "table id invalid", nil)
+			return
+		}
 	}
 	// database validation
 	// TODO (@dev-rodrigobaliza) database validation ???
 	// table validation
-	table, err := g.getTable(tableID)
+	table, err := t.getTable(tableID)
 	if err != nil || table == nil {
-		g.sendResponseError(player, message, "table id invalid", nil)
+		if !internal {
+			t.sendResponseError(player, message, "table id invalid", nil)
+		}
 		return
 	}
 	// leave table
 	err = table.DelPlayer(player.uuid)
 	if err != nil {
-		if err != errors.ErrMinPlayers {
-			g.sendResponseError(player, message, "leave table failed", err)
+		if err != errors.ErrMinPlayers && err != errors.ErrEmptyTable && !internal {
+			t.sendResponseError(player, message, "leave table failed", err)
 			return
 		}
-		// min players reached
-		go g.resourceTableRemoveMinReached(table, true, err)
+		// table empty or min players reached
+		t.resourceTableRemoveForced(table, true, err)
 	}
 	// send response
-	g.sendResponseSuccess(player, message, "leave table", nil)
+	data := make(map[string]interface{})
+	data["table_id"] = tableID
+	t.sendResponseSuccess(player, message, "leave table", data)
 	// debug log
-	g.debug("=== table leave %s", tableID)
+	t.debug("=== table leave %s [internal: %t]", tableID, internal)
 }
 
-func (g *TableManager) resourceTableRemoveMinReached(table *Table, force bool, err error) {
-	players := g.players.GetAllValues()
-	// remove all players from this table
-	for _, player := range players {
-		if player.tableID == table.GetID() {
-			player.tableID = ""
-			// send the bad news
-			g.sendResponseError(player, nil, "table removed", err)
+func (t *TableManager) resourceTableRemoveForced(table *Table, force bool, err error) {
+	if err == errors.ErrMinPlayers {
+		players := t.players.GetAllValues()
+		// remove all players from this table
+		for _, player := range players {
+			if player.tableID == table.GetID() {
+				player.tableID = ""
+				// send the bad news
+				t.sendResponseError(player, nil, "table removed", err)
+			}
 		}
+		// wait some time
+		time.Sleep(time.Second * 3)
 	}
-	// wait some time
-	time.Sleep(time.Second * 10)
 	// set table state
 	table.Stop(force)
 	// remove the table
-	err = g.delTable(table)
+	err = t.delTable(table)
 	if err != nil {
-		g.debug("error while deleting table (min reached): %s", err.Error())
+		t.debug("error while deleting table (forced remove): %s", err.Error())
 	}
 }
 
-func (g *TableManager) resourceTableStartGame(player *Player, message *request.WSRequest) {
+func (t *TableManager) resourceTableStartGame(player *Player, message *request.WSRequest) {
 	// input validation
-	tableID := g.getTableID(message)
+	tableID := t.getTableID(message)
 	if tableID == "" {
-		g.sendResponseError(player, message, "table id invalid, nil", nil)
+		t.sendResponseError(player, message, "table id invalid, nil", nil)
 		return
 	}
 	// database validation
 	// TODO (@dev-rodrigobaliza) database validation ???
 	// table validation
-	table, err := g.getTable(tableID)
+	table, err := t.getTable(tableID)
 	if err != nil || table == nil {
-		g.sendResponseError(player, message, "table id invalid", nil)
+		t.sendResponseError(player, message, "table id invalid", nil)
 		return
 	}
 	// onwnership validation
 	if !player.user.IsAdmin || table.GetStatus().Owner != player.uuid || table.GetStatus().Owner != "" {
-		g.sendResponseError(player, message, "table id not owned by player", nil)
+		t.sendResponseError(player, message, "table id not owned by player", nil)
 		return
 	}
 	// start table
 	err = table.Play()
 	if err != nil {
-		g.sendResponseError(player, message, "table not started", err)
+		t.sendResponseError(player, message, "table not started", err)
 		return
 	}
 	// make response
 	response := make(map[string]interface{})
 	response["game_id"] = player.tableID
 	// send response
-	g.sendResponseSuccess(player, message, "table started", response)
+	t.sendResponseSuccess(player, message, "table started", response)
 	// debug log
-	g.debug("=== table start %v", response)
+	t.debug("=== table start %v", response)
 }
 
-func (g *TableManager) resourceTableStatus(player *Player, message *request.WSRequest) {
+func (t *TableManager) resourceTableStatus(player *Player, message *request.WSRequest) {
 	// input validation
-	tableID := g.getTableID(message)
+	tableID := t.getTableID(message)
 	if tableID == "" {
-		g.sendResponseError(player, message, "table id invalid", nil)
+		t.sendResponseError(player, message, "table id invalid", nil)
 		return
 	}
 	// database validation
 	// TODO (@dev-rodrigobaliza) database validation ???
 	// table validation
-	table, err := g.getTable(tableID)
+	table, err := t.getTable(tableID)
 	if err != nil || table == nil {
-		g.sendResponseError(player, message, "table id invalid", nil)
+		t.sendResponseError(player, message, "table id invalid", nil)
 		return
 	}
 	// make reponse
-	response := g.getTableStatusResponse(table)
+	response := t.getTableStatusResponse(table)
 	// send response
-	g.sendResponseSuccess(player, message, "table status", response)
+	t.sendResponseSuccess(player, message, "table status", response)
 	// debug log
-	g.debug("=== table status %v", response)
+	t.debug("=== table status %v", response)
 }
 
-func (g *TableManager) serviceTable(player *Player, message *request.WSRequest) {
+func (t *TableManager) serviceTable(player *Player, message *request.WSRequest) {
 	switch message.Resource {
 	case "create":
-		g.resourceTableCreate(player, message)
+		t.resourceTableCreate(player, message)
 
 	case "enter":
-		g.resourceTableAddPlayer(player, message)
+		t.resourceTableAddPlayer(player, message)
 
 	case "leave":
-		g.resourceTableRemovePlayer(player, message)
+		t.resourceTableRemovePlayer(player, message, "")
 
 	case "remove":
-		g.resourceTableDelete(player, message)
+		t.resourceTableDelete(player, message)
 
 	case "start":
-		g.resourceTableStartGame(player, message)
+		t.resourceTableStartGame(player, message)
 
 	case "status":
-		g.resourceTableStatus(player, message)
+		t.resourceTableStatus(player, message)
 
 	default:
-		g.sendResponseError(player, message, "table resource not found", nil)
+		t.sendResponseError(player, message, "table resource not found", nil)
 	}
 }
