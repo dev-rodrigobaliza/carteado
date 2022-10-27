@@ -1,6 +1,9 @@
 package server
 
 import (
+	"embed"
+	"net/http"
+
 	"github.com/dev-rodrigobaliza/carteado/domain/config"
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/adaptors/handlers"
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/adaptors/repositories"
@@ -9,6 +12,7 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/internal/database"
 	"github.com/dev-rodrigobaliza/carteado/utils"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
@@ -20,7 +24,7 @@ type Server struct {
 	saloon *saloon.Saloon
 }
 
-func New(cfg *config.App) *Server {
+func New(cfg *config.App, assets embed.FS) *Server {
 	app := fiber.New(fiber.Config{
 		AppName:               cfg.Name,
 		ServerHeader:          cfg.Name,
@@ -64,6 +68,11 @@ func New(cfg *config.App) *Server {
 
 	ws := app.Group("ws")
 	s.initSaloon(ws, appService)
+
+	app.Use("/", filesystem.New(filesystem.Config{
+		Root:         http.FS(assets),
+		PathPrefix:   "dist",
+	}))
 
 	app.Use(s.error404())
 

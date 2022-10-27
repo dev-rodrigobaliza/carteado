@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"embed"
 	"log"
 	"os"
 	"os/signal"
@@ -11,7 +12,7 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/internal/server"
 )
 
-func NewApp(madeBy, name, version, date string, debug bool) error {
+func NewApp(madeBy, name, version, date string, debug bool, assets embed.FS) error {
 	start := time.Now()
 
 	c := config.NewApp(name, version, date, madeBy, debug)
@@ -24,7 +25,7 @@ func NewApp(madeBy, name, version, date string, debug bool) error {
 	showInfo(c)
 	initSecurity(c)
 
-	s := server.New(c)
+	s := server.New(c, assets)
 	s.Start()
 	log.Printf("*** server started")
 

@@ -1,0 +1,38 @@
+{
+    "timezone": "America/Sao_Paulo",
+    "database": {
+        "type": "mysql",
+        "host": "192.168.0.10",
+        "port": "3306",
+        "username": "carteado",
+        "password": "123",
+        "name": "carteado",
+        "ssl": false,
+        "pool": {
+            "idle": 10,
+            "open": 100,
+            "lifetime": 3600
+        }
+    },
+    "http": {
+        "address": "0.0.0.0:8081",
+        "cors": "*",
+        "idle_timeout": "30s",
+        "read_timeout": "30s",
+        "write_timeout": "30s",
+        "limiter": {
+            "enabled": true,
+            "max_requests": 10,
+            "expiration": "10s",
+            "allowed_ips": [
+                "127.0.0.1",
+                "localhost",
+                "::1"
+            ]
+        }
+    },
+    "security": {
+        "access_token": "abcdefgh123456",
+        "expire_time": "30d"
+    }
+}
