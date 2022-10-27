@@ -1,4 +1,4 @@
-package table
+package saloon
 
 import (
 	"log"
@@ -6,47 +6,47 @@ import (
 	tbl "github.com/dev-rodrigobaliza/carteado/domain/core/table"
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
+	pl "github.com/dev-rodrigobaliza/carteado/internal/core/player"
+	"github.com/dev-rodrigobaliza/carteado/internal/core/table"
 )
 
-func (t *TableManager) debug(format string, v ...any) {
-	if t.cfg.Debug {
+func (s *Saloon) debug(format string, v ...any) {
+	if s.cfg.Debug {
 		log.Printf(format, v...)
 	}
 }
 
-func (t *TableManager) getServerStatusResponse(authenticatedOnly bool) map[string]interface{} {
+func (s *Saloon) getServerStatusResponse(authenticatedOnly bool) map[string]interface{} {
 	// get players
 	players := make([]*response.Player, 0)
-	allPlayers := t.players.GetAllValues()
-	for _, player := range allPlayers {
-		if !authenticatedOnly || player.user != nil {
+	for _, player := range s.players.GetAllValues() {
+		if !authenticatedOnly || player.User != nil {
 			players = append(players, player.ToResponse())
 		}
 	}
 	// get tables
 	tables := make([]*response.Table, 0)
-	allTables := t.tables.GetAllValues()
-	for _, table := range allTables {
+	for _, table := range s.tables.GetAllValues() {
 		tables = append(tables, table.ToResponse())
-	}	
+	}
 
 	response := make(map[string]interface{})
-	response["server"] = t.cfg.Name
-	response["version"] = t.cfg.Version
-	response["started_at"] = t.cfg.StartedAt
+	response["server"] = s.cfg.Name
+	response["version"] = s.cfg.Version
+	response["started_at"] = s.cfg.StartedAt
 	response["players_count"] = len(players)
 	if len(players) > 0 {
 		response["players"] = players
 	}
 	response["tables_count"] = len(tables)
 	if len(tables) > 0 {
-		response["tables"] = tables	
+		response["tables"] = tables
 	}
 
 	return response
 }
 
-func (t *TableManager) getTableID(message *request.WSRequest) string {
+func (s *Saloon) getTableID(message *request.WSRequest) string {
 	tableID, ok := message.Data["table_id"].(string)
 	if !ok {
 		return ""
@@ -55,7 +55,7 @@ func (t *TableManager) getTableID(message *request.WSRequest) string {
 	return tableID
 }
 
-func (t *TableManager) getTableStatusResponse(table *Table) map[string]interface{} {
+func (s *Saloon) getTableStatusResponse(table *table.Table) map[string]interface{} {
 	// get table status
 	tableStatus := table.GetStatus()
 	// make reponse
@@ -77,14 +77,39 @@ func (t *TableManager) getTableStatusResponse(table *Table) map[string]interface
 	if tableStatus.State == tbl.StatePlay {
 		response["game_state"] = tableStatus.GameState.String()
 	}
-	if t.cfg.Debug {
+	if s.cfg.Debug {
 		response["players"] = table.GetPlayers()
 	}
 
 	return response
 }
 
-func (t *TableManager) sendResponse(player *Player, request *request.WSRequest, status, message string, data map[string]interface{}) {
+func (s *Saloon) greetingMesssage(player *pl.Player, message string) {
+	response := make(map[string]interface{})
+	response["server"] = s.cfg.Name
+	response["version"] = s.cfg.Version
+
+	s.sendResponseSuccess(player, nil, message, response)
+}
+
+func (s *Saloon) loginPlayer(player *pl.Player) {
+	var welcomePlayer *pl.Player
+	// if player has previous login and remove it
+	players := s.players.GetAllValues()
+	for _, p := range players {
+		if p != player && p.User != nil && p.User.ID == player.User.ID {
+			p.User = nil
+			welcomePlayer = p
+			break
+		}
+	}
+
+	if welcomePlayer != nil {
+		s.greetingMesssage(welcomePlayer, "disconnected (using another session)")
+	}
+}
+
+func (s *Saloon) sendResponse(player *pl.Player, request *request.WSRequest, status, message string, data map[string]interface{}) {
 	response := &response.WSResponse{
 		Status:  status,
 		Message: message,
@@ -99,16 +124,16 @@ func (t *TableManager) sendResponse(player *Player, request *request.WSRequest, 
 	player.Send(response.ToBytes())
 }
 
-func (t *TableManager) sendResponseError(player *Player, request *request.WSRequest, message string, err error) {
+func (s *Saloon) sendResponseError(player *pl.Player, request *request.WSRequest, message string, err error) {
 	var data map[string]interface{}
-	if err != nil && t.cfg.Debug {
+	if err != nil && s.cfg.Debug {
 		data = make(map[string]interface{})
 		data["error"] = err.Error()
 	}
 
-	t.sendResponse(player, request, "error", message, data)
+	s.sendResponse(player, request, "error", message, data)
 }
 
-func (t *TableManager) sendResponseSuccess(player *Player, request *request.WSRequest, message string, data map[string]interface{}) {
-	t.sendResponse(player, request, "success", message, data)
+func (s *Saloon) sendResponseSuccess(player *pl.Player, request *request.WSRequest, message string, data map[string]interface{}) {
+	s.sendResponse(player, request, "success", message, data)
 }

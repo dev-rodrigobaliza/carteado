@@ -9,6 +9,7 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
 	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/game"
+	"github.com/dev-rodrigobaliza/carteado/internal/core/player"
 	"github.com/dev-rodrigobaliza/carteado/pkg/safemap"
 	"github.com/dev-rodrigobaliza/carteado/utils"
 )
@@ -20,7 +21,7 @@ type Table struct {
 	minPlayers int
 	maxPlayers int
 	allowBots  bool
-	players    *safemap.SafeMap[string, *Player]
+	players    *safemap.SafeMap[string, *player.Player]
 	winners    []string
 	state      table.State
 	gameMode   gm.Mode
@@ -28,7 +29,7 @@ type Table struct {
 	done       chan bool
 }
 
-func NewTable(owner *Player, secret string, minPlayers, maxPlayers int, allowBots bool, gameMode gm.Mode) (*Table, error) {
+func NewTable(owner *player.Player, secret string, minPlayers, maxPlayers int, allowBots bool, gameMode gm.Mode) (*Table, error) {
 	game, err := newGame(gameMode)
 	if err != nil {
 		return nil, err
@@ -36,12 +37,12 @@ func NewTable(owner *Player, secret string, minPlayers, maxPlayers int, allowBot
 
 	table := &Table{
 		id:         utils.NewUUID(consts.TABLE_PREFIX_ID),
-		owner:      owner.uuid,
+		owner:      owner.UUID,
 		secret:     secret,
 		minPlayers: minPlayers,
 		maxPlayers: maxPlayers,
 		allowBots:  allowBots,
-		players:    safemap.New[string, *Player](),
+		players:    safemap.New[string, *player.Player](),
 		winners:    make([]string, 0),
 		state:      table.StateStart,
 		gameMode:   gameMode,
@@ -67,7 +68,7 @@ func newGame(gameMode gm.Mode) (game.IGame, error) {
 	return g, nil
 }
 
-func (t *Table) AddPlayer(player *Player, secret string) error {
+func (t *Table) AddPlayer(player *player.Player, secret string) error {
 	// basic validation
 	if player == nil {
 		return errors.ErrNotFoundPlayer
@@ -76,7 +77,7 @@ func (t *Table) AddPlayer(player *Player, secret string) error {
 		return errors.ErrInvalidPassword
 	}
 	// table validation
-	if t.HasPlayer(player.uuid) {
+	if t.HasPlayer(player.UUID) {
 		return errors.ErrExistsPlayer
 	}
 
@@ -84,7 +85,7 @@ func (t *Table) AddPlayer(player *Player, secret string) error {
 		return errors.ErrMaxPlayers
 	}
 	// add player
-	t.players.Insert(player.uuid, player)
+	t.players.Insert(player.UUID, player)
 
 	return nil
 }

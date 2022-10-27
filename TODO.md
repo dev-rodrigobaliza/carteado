@@ -1,1 +1,0 @@
-* create game remove player from previous game

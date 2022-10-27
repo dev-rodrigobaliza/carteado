@@ -5,7 +5,7 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/adaptors/handlers"
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/adaptors/repositories"
 	"github.com/dev-rodrigobaliza/carteado/internal/api/v1/adaptors/services"
-	"github.com/dev-rodrigobaliza/carteado/internal/core/table"
+	"github.com/dev-rodrigobaliza/carteado/internal/core/saloon"
 	"github.com/dev-rodrigobaliza/carteado/internal/database"
 	"github.com/dev-rodrigobaliza/carteado/utils"
 	"github.com/gofiber/fiber/v2"
@@ -17,7 +17,7 @@ type Server struct {
 	config *config.App
 	db     *database.Database
 	app    *fiber.App
-	hub    *table.Hub
+	saloon *saloon.Saloon
 }
 
 func New(cfg *config.App) *Server {
@@ -63,7 +63,7 @@ func New(cfg *config.App) *Server {
 	handlers.Load(appService, api)
 
 	ws := app.Group("ws")
-	s.hubLoad(ws, appService)
+	s.initSaloon(ws, appService)
 
 	app.Use(s.error404())
 
@@ -77,4 +77,9 @@ func (s *Server) Start() {
 			panic(err)
 		}
 	}()
+}
+
+func (s *Server) Stop() error {
+	s.saloon.Stop()
+	return s.app.Shutdown()
 }

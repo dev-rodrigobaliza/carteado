@@ -24,7 +24,8 @@ func NewApp(madeBy, name, version, date string, debug bool) error {
 	showInfo(c)
 	initSecurity(c)
 
-	server.New(c).Start()
+	s := server.New(c)
+	s.Start()
 	log.Printf("*** server started")
 
 	sig := make(chan os.Signal, 1)
@@ -32,6 +33,7 @@ func NewApp(madeBy, name, version, date string, debug bool) error {
 	<-sig
 	close(sig)
 
+	s.Stop()
 	log.Printf("*** server stopped after %v", time.Since(start))
 
 	return nil
