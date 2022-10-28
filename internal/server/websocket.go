@@ -8,7 +8,7 @@ import (
 )
 
 func (s *Server) initSaloon(r fiber.Router, appService *services.AppService) {
-	s.saloon = saloon.NewSaloon(s.config, appService)
+	s.saloon = saloon.New(s.config, appService)
 
 	r.Use(s.upgradeHandler)
 	// websocket connection handler

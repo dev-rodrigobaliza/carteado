@@ -30,7 +30,7 @@ type Saloon struct {
 	doneChan   chan struct{}
 }
 
-func NewSaloon(cfg *config.App, appService *services.AppService) *Saloon {
+func New(cfg *config.App, appService *services.AppService) *Saloon {
 	saloon := &Saloon{
 		cfg:        cfg,
 		appService: appService,
@@ -48,7 +48,7 @@ func NewSaloon(cfg *config.App, appService *services.AppService) *Saloon {
 }
 
 func (s *Saloon) NewPlayer(conn *websocket.Conn) {
-	p := player.NewPlayer(conn, s.boardChan, s.delChan)
+	p := player.New(conn, s.boardChan, s.delChan)
 	s.greetingMesssage(p, "welcome stranger")
 	s.addChan <- p
 	p.Listen()

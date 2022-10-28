@@ -3,11 +3,9 @@ package saloon
 import (
 	"log"
 
-	tbl "github.com/dev-rodrigobaliza/carteado/domain/core/table"
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
 	pl "github.com/dev-rodrigobaliza/carteado/internal/core/player"
-	"github.com/dev-rodrigobaliza/carteado/internal/core/table"
 )
 
 func (s *Saloon) debug(format string, v ...any) {
@@ -53,35 +51,6 @@ func (s *Saloon) getTableID(message *request.WSRequest) string {
 	}
 
 	return tableID
-}
-
-func (s *Saloon) getTableStatusResponse(table *table.Table) map[string]interface{} {
-	// get table status
-	tableStatus := table.GetStatus()
-	// make reponse
-	response := make(map[string]interface{})
-	response["table_id"] = tableStatus.ID
-	response["table_owner"] = tableStatus.Owner
-	if tableStatus.State == tbl.StateFinish {
-		response["table_winners"] = tableStatus.Winners
-	}
-	response["min_players"] = table.GetMinPlayers()
-	response["max_players"] = table.GetMaxPlayers()
-	response["player_count"] = tableStatus.PlayerCount
-	if tableStatus.State != tbl.StateStart {
-		response["game_round"] = tableStatus.GameRound
-	}
-	response["allow_bots"] = table.GetAllowBots()
-	response["private"] = table.IsPrivate()
-	response["game_mode"] = tableStatus.GameMode.String()
-	if tableStatus.State == tbl.StatePlay {
-		response["game_state"] = tableStatus.GameState.String()
-	}
-	if s.cfg.Debug {
-		response["players"] = table.GetPlayers()
-	}
-
-	return response
 }
 
 func (s *Saloon) greetingMesssage(player *pl.Player, message string) {

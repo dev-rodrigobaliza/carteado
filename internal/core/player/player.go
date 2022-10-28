@@ -24,9 +24,11 @@ type Player struct {
 	loggedAt time.Time
 	// mounted after enter table
 	TableID string
+	// mounted after enter group
+	GroupID int
 }
 
-func NewPlayer(conn *websocket.Conn, boardChan chan pl.Message[*Player], delChan chan *Player) *Player {
+func New(conn *websocket.Conn, boardChan chan pl.Message[*Player], delChan chan *Player) *Player {
 	player := &Player{
 		UUID:      utils.NewUUID(consts.PLAYER_PREFIX_ID),
 		Addr:      conn.RemoteAddr().String(),

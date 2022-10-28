@@ -39,7 +39,8 @@ func (s *Saloon) resourceTableAddPlayer(player *pl.Player, message *request.WSRe
 	// TODO (@dev-rodrigobaliza) check if player was in another table and remove it from there
 	player.TableID = table.GetID()
 	// make reponse
-	response := s.getTableStatusResponse(table)
+	response := make(map[string]interface{})
+	response["table"] = table.ToResponse()
 	// send response
 	s.sendResponseSuccess(player, message, "enter table", response)
 	// debug log
@@ -90,7 +91,7 @@ func (s *Saloon) resourceTableCreate(player *pl.Player, message *request.WSReque
 	// database validation
 	// TODO (@dev-rodrigobaliza) database validation ???
 	// create new table
-	table, err := table.NewTable(player, secret, int(minPlayers), int(maxPlayers), allowBots, gameMode)
+	table, err := table.New(player, secret, int(minPlayers), int(maxPlayers), allowBots, gameMode)
 	if err != nil {
 		s.sendResponseError(player, message, "max players invalid", err)
 		return
@@ -103,7 +104,8 @@ func (s *Saloon) resourceTableCreate(player *pl.Player, message *request.WSReque
 	}
 	player.TableID = table.GetID()
 	// make response
-	response := s.getTableStatusResponse(table)
+	response := make(map[string]interface{})
+	response["table"] = table.ToResponse()
 	// send response
 	s.sendResponseSuccess(player, message, "table created", response)
 	// debug log
@@ -130,7 +132,7 @@ func (s *Saloon) resourceTableDelete(player *pl.Player, message *request.WSReque
 		return
 	}
 	// onwnership validation
-	if !player.User.IsAdmin || table.GetStatus().Owner != player.UUID || table.GetStatus().Owner != "" {
+	if !player.User.IsAdmin || table.GetOwner() != player.UUID || table.GetOwner() != "" {
 		s.sendResponseError(player, message, "table id not owned by player", nil)
 		return
 	}
@@ -229,7 +231,7 @@ func (s *Saloon) resourceTableStartGame(player *pl.Player, message *request.WSRe
 		return
 	}
 	// onwnership validation
-	if !player.User.IsAdmin || table.GetStatus().Owner != player.UUID || table.GetStatus().Owner != "" {
+	if !player.User.IsAdmin || table.GetOwner() != player.UUID || table.GetOwner() != "" {
 		s.sendResponseError(player, message, "table id not owned by player", nil)
 		return
 	}
@@ -264,7 +266,8 @@ func (s *Saloon) resourceTableStatus(player *pl.Player, message *request.WSReque
 		return
 	}
 	// make reponse
-	response := s.getTableStatusResponse(table)
+	response := make(map[string]interface{})
+	response["table"] = table.ToResponse()
 	// send response
 	s.sendResponseSuccess(player, message, "table status", response)
 	// debug log

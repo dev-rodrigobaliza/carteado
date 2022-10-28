@@ -3,6 +3,8 @@ package main
 import (
 	"embed"
 	"log"
+	"math/rand"
+	"time"
 
 	"github.com/dev-rodrigobaliza/carteado/internal/bootstrap"
 )
@@ -23,6 +25,7 @@ var (
 
 func init() {
 	log.SetFlags(log.Ldate | log.Lmicroseconds)
+	rand.Seed(time.Now().UTC().UnixNano())
 }
 
 func main() {

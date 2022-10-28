@@ -1,13 +1,17 @@
 package game
 
 import (
+	"github.com/dev-rodrigobaliza/carteado/consts"
 	"github.com/dev-rodrigobaliza/carteado/domain/core/game"
 	"github.com/dev-rodrigobaliza/carteado/errors"
 )
 
 type BlackJack struct {
-	state game.State
-	round uint64
+	maxGroups       int
+	maxPlayersGroup int
+	minPlayersGroup int
+	state           game.State
+	round           uint64
 }
 
 // This line is for get feedback in case we are not implementing the interface correctly
@@ -15,9 +19,24 @@ var _ IGame = (*BlackJack)(nil)
 
 func NewBlackJack() *BlackJack {
 	return &BlackJack{
-		state: game.StateWaiting,
-		round: 0,
+		maxGroups:       consts.GAME_BLACKJACK_MAX_GROUPS,
+		maxPlayersGroup: consts.GAME_BLACKJACK_MAX_PLAYERS_GROUP,
+		minPlayersGroup: consts.GAME_BLACKJACK_MIN_PLAYERS_GROUP,
+		state:           game.StateWaiting,
+		round:           0,
 	}
+}
+
+func (g *BlackJack) GetMaxGroups() int {
+	return g.maxGroups
+}
+
+func (g *BlackJack) GetMaxPlayersGroup() int {
+	return g.maxPlayersGroup
+}
+
+func (g *BlackJack) GetMinPlayersGroup() int {
+	return g.minPlayersGroup
 }
 
 func (g *BlackJack) GetRound() uint64 {

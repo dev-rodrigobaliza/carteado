@@ -5,6 +5,9 @@ import (
 )
 
 type IGame interface {
+	GetMaxGroups() int
+	GetMaxPlayersGroup() int
+	GetMinPlayersGroup() int
 	GetRound() uint64
 	GetState() game.State
 	Loop() (bool, error)

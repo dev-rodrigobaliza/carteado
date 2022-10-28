@@ -9,6 +9,7 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
 	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/game"
+	"github.com/dev-rodrigobaliza/carteado/internal/core/group"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/player"
 	"github.com/dev-rodrigobaliza/carteado/pkg/safemap"
 	"github.com/dev-rodrigobaliza/carteado/utils"
@@ -22,17 +23,24 @@ type Table struct {
 	maxPlayers int
 	allowBots  bool
 	players    *safemap.SafeMap[string, *player.Player]
-	winners    []string
+	groups     *safemap.SafeMap[int, *group.Group]
+	winners    []int
 	state      table.State
 	gameMode   gm.Mode
 	game       game.IGame
 	done       chan bool
 }
 
-func NewTable(owner *player.Player, secret string, minPlayers, maxPlayers int, allowBots bool, gameMode gm.Mode) (*Table, error) {
+func New(owner *player.Player, secret string, minPlayers, maxPlayers int, allowBots bool, gameMode gm.Mode) (*Table, error) {
 	game, err := newGame(gameMode)
 	if err != nil {
 		return nil, err
+	}
+
+	groups := safemap.New[int, *group.Group]()
+	for i := 0; i < game.GetMaxGroups(); i++ {
+		group := group.New(game.GetMinPlayersGroup(), game.GetMaxPlayersGroup())
+		groups.Insert(i, group)
 	}
 
 	table := &Table{
@@ -43,7 +51,8 @@ func NewTable(owner *player.Player, secret string, minPlayers, maxPlayers int, a
 		maxPlayers: maxPlayers,
 		allowBots:  allowBots,
 		players:    safemap.New[string, *player.Player](),
-		winners:    make([]string, 0),
+		groups:     groups,
+		winners:    make([]int, 0),
 		state:      table.StateStart,
 		gameMode:   gameMode,
 		game:       game,
@@ -99,6 +108,12 @@ func (t *Table) DelPlayer(player string) error {
 	if player == "" {
 		return errors.ErrNotFoundPlayer
 	}
+	// get player group
+	groupID := 0
+	if t.players.HasKey(player) {
+		p, _ := t.players.GetOneValue(player)
+		groupID = p.GroupID
+	}
 	// del player
 	err := t.players.Delete(player)
 	if err != nil {
@@ -107,6 +122,11 @@ func (t *Table) DelPlayer(player string) error {
 	// adjust owner
 	if t.owner == player {
 		t.owner = ""
+	}
+	// remove from group
+	if groupID > 0 {
+		t.groups.Delete(groupID)
+		// TODO (@dev-rodrigobaliza) check if game is running and permits incomplet groups playing
 	}
 	// validate table rules
 	if t.players.IsEmpty() {
@@ -135,29 +155,16 @@ func (t *Table) GetMinPlayers() int {
 	return t.minPlayers
 }
 
+func (t *Table) GetOwner() string {
+	return t.owner
+}
+
 func (t *Table) GetPlayers() []string {
 	return t.players.GetAllKeys()
 }
 
 func (t *Table) GetPlayersCount() int {
 	return t.players.Size()
-}
-
-func (t *Table) GetStatus() *table.Status {
-	return &table.Status{
-		ID:          t.id,
-		Owner:       t.owner,
-		Winners:     t.winners,
-		State:       t.state,
-		PlayerCount: t.players.Size(),
-		MinPlayers:  t.minPlayers,
-		MaxPlayers:  t.maxPlayers,
-		AllowBots:   t.allowBots,
-		Private:     t.IsPrivate(),
-		GameMode:    t.gameMode,
-		GameState:   t.game.GetState(),
-		GameRound:   t.game.GetRound(),
-	}
 }
 
 func (t *Table) HasPlayer(playerID string) bool {
@@ -198,7 +205,23 @@ func (t *Table) ToResponse() *response.Table {
 		pls = append(pls, player.ToResponse())
 	}
 
-	ta := response.NewTable(t.id, t.gameMode.String(), t.owner, t.IsPrivate(), pls)
+	grs := make([]*response.Group, 0)
+	groups := t.groups.GetAllValues()
+	for _, group := range groups {
+		if group.GetPlayersCount() > 0 {
+			grs = append(grs, group.ToResponse())
+		}
+	}
+
+	wis := make([]*response.Group, 0)
+	for _, w := range t.winners {
+		winner, err := t.groups.GetOneValue(w)
+		if err == nil {
+			wis = append(wis, winner.ToResponse())
+		}
+	}
+
+	ta := response.NewTable(t.id, t.gameMode.String(), t.owner, t.IsPrivate(), pls, grs, wis)
 
 	return ta
 }

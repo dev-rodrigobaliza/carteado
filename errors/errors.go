@@ -11,6 +11,11 @@ var (
 	ErrFailedParseFileConfig = errors.New("failed to parse config file")
 
 	ErrInvalidAccessToken  = errors.New("access token invalid")
+	ErrInvalidCard         = errors.New("card invalid")
+	ErrInvalidCardDeck     = errors.New("card deck invalid")
+	ErrInvalidCardFace     = errors.New("card face invalid")
+	ErrInvalidCardSuit     = errors.New("card suit invalid")
+	ErrInvalidCardValue    = errors.New("card value invalid")
 	ErrInvalidDatabaseType = errors.New("database type invalid")
 	ErrInvalidEmail        = errors.New("email invalid")
 	ErrInvalidGameMode     = errors.New("game mode invalid")
