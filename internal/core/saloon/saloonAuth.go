@@ -41,7 +41,7 @@ func (s *Saloon) resourceAuthLogin(player *player.Player, message *request.WSReq
 	response["first_login"] = firstLogin
 	response["player"] = player.ToResponse()
 	// send response
-	s.sendResponseSuccess(player, message, "authenticated", response)
+	s.sendResponseSuccess(player, message, player.Greeting(), response)
 	// debug log
 	s.debug("=== auth login %v", response)
 }

@@ -1,6 +1,7 @@
 package player
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/dev-rodrigobaliza/carteado/consts"
@@ -38,6 +39,10 @@ func NewPlayer(conn *websocket.Conn, boardChan chan pl.Message[*Player], delChan
 	go player.write()
 
 	return player
+}
+
+func (p *Player) Greeting() string {
+	return fmt.Sprintf("hello %s", p.User.Name)
 }
 
 func (p *Player) Listen() {

@@ -1,13 +1,21 @@
 version=0.0.1
 date=$(shell date "+(%d/%m/%Y)")
 
-build:
-	@go build -o bin/carteado -ldflags '-s -w -X "main.appVersion=${version}" -X "main.appDate=${date}"' cmd/api/main.go
-	@cp config.json.example bin/config.json
+.PHONY: frontend build
 
-run: build
-	@cd bin
-	@carteado
+frontend:
+	cd frontend && npm run build && cp -r dist ../cmd/server
+
+build-win:
+	go build -o bin/carteado.exe -ldflags "-s -w -X 'main.appVersion=${version}' -X 'main.appDate=${date}'" cmd/server/main.go
+
+all: frontend build-win
+	@echo "all is done now!"
+
+run:
+	cd bin
+	carteado
+	cd ..
 
 test:
 	go test -v ./...

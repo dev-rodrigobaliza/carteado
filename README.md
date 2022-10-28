@@ -13,8 +13,19 @@ simple game to make things more easy
 fiber, gorm and vue
 
 ## build
+* frontend
 ```
-make build
+make frontend
+```
+
+* server
+```
+make build-win
+```
+
+* all
+```
+make all
 ```
 
 ## run
