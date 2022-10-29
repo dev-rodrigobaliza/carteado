@@ -1,30 +1,43 @@
 package group
 
 import (
-	"github.com/dev-rodrigobaliza/carteado/consts"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
 	"github.com/dev-rodrigobaliza/carteado/errors"
+	"github.com/dev-rodrigobaliza/carteado/internal/core/card"
+	"github.com/dev-rodrigobaliza/carteado/internal/core/deck"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/player"
 	"github.com/dev-rodrigobaliza/carteado/pkg/safemap"
-	"github.com/dev-rodrigobaliza/carteado/utils"
 )
 
 type Group struct {
-	id         string
-	players    *safemap.SafeMap[string, *player.Player]
+	id         int
 	minPlayers int
 	maxPlayers int
+	players    *safemap.SafeMap[string, *player.Player]
+	decks      *safemap.SafeMap[string, *deck.Deck]
 }
 
-func New(minPlayers, maxPlayers int) *Group {
+func New(id, minPlayers, maxPlayers int) *Group {
 	group := &Group{
-		id:         utils.NewUUID(consts.GROUP_PREFIX_ID),
-		players:    safemap.New[string, *player.Player](),
+		id:         id,
 		minPlayers: minPlayers,
 		maxPlayers: maxPlayers,
+		players:    safemap.New[string, *player.Player](),
+		decks:      safemap.New[string, *deck.Deck](),
 	}
 
 	return group
+}
+
+func (g *Group) AddCard(player string, card *card.Card) error {
+	// basic validation
+	if !g.decks.HasKey(player) {
+		return errors.ErrNotFoundPlayer
+	}
+	deck, _ := g.decks.GetOneValue(player)
+	deck.AddCard(card)
+
+	return nil
 }
 
 func (g *Group) AddPlayer(player *player.Player) error {
@@ -41,20 +54,36 @@ func (g *Group) AddPlayer(player *player.Player) error {
 	}
 	// add player
 	g.players.Insert(player.UUID, player)
+	player.GroupID = g.id
 
 	return nil
 }
 
+func (g *Group) DelCard(player, card string) error {
+	// basic validation
+	if !g.decks.HasKey(player) {
+		return errors.ErrNotFoundPlayer
+	}
+	deck, _ := g.decks.GetOneValue(player)
+	if !deck.HasCard(card) {
+		return errors.ErrNotFoundCard
+	}
+
+	return deck.DelCard(card)
+}
+
 func (g *Group) DelPlayer(player string) error {
 	// basic validation
-	if player == "" {
+	if player == "" || !g.players.HasKey(player) {
 		return errors.ErrNotFoundPlayer
 	}
 	// del player
+	p, _ := g.players.GetOneValue(player)
 	err := g.players.Delete(player)
 	if err != nil {
 		return errors.ErrNotFoundPlayer
 	}
+	p.GroupID = 0
 	// group validation
 	if g.players.Size() < g.minPlayers {
 		return errors.ErrMinPlayers
@@ -64,7 +93,7 @@ func (g *Group) DelPlayer(player string) error {
 	return nil
 }
 
-func (g *Group) GetID() string {
+func (g *Group) GetID() int {
 	return g.id
 }
 
@@ -91,7 +120,7 @@ func (g *Group) ToResponse() *response.Group {
 		pls = append(pls, player.ToResponse())
 	}
 
-	gr := response.NewGroup(g.id, pls)
+	gr := response.NewGroup(g.id, g.minPlayers, g.maxPlayers, pls)
 
 	return gr
 }

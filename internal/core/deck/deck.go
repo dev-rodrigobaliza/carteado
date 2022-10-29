@@ -3,15 +3,16 @@ package deck
 import (
 	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/card"
+	"github.com/dev-rodrigobaliza/carteado/pkg/safemap"
 	"github.com/dev-rodrigobaliza/carteado/vars"
 )
 
 type Deck struct {
-	Cards []*card.Card
+	cards *safemap.SafeMap[string, *card.Card]
 }
 
 func New(jokers int) (*Deck, error) {
-	cards := make([]*card.Card, 0)
+	cards := safemap.New[string, *card.Card]()
 
 	for i, face := range vars.CardFaces {
 		for j, suit := range vars.CardSuits {
@@ -19,7 +20,7 @@ func New(jokers int) (*Deck, error) {
 			if err != nil {
 				return nil, err
 			}
-			cards = append(cards, c)
+			cards.Insert(c.GetID(), c)
 		}
 	}
 
@@ -28,11 +29,11 @@ func New(jokers int) (*Deck, error) {
 		if err != nil {
 			return nil, err
 		}
-		cards = append(cards, c)
+		cards.Insert(c.GetID(), c)
 	}
 
 	deck := &Deck{
-		Cards: cards,
+		cards: cards,
 	}
 
 	return deck, nil
@@ -49,7 +50,7 @@ func NewCustom(cards []string, values []int) (*Deck, error) {
 		return nil, errors.ErrInvalidCardDeck
 	}
 
-	cas := make([]*card.Card, 0)
+	cas := safemap.New[string, *card.Card]()
 
 	// 1d 4g 6g k!
 	for i, c := range cards {
@@ -58,12 +59,24 @@ func NewCustom(cards []string, values []int) (*Deck, error) {
 			return nil, err
 		}
 
-		cas = append(cas, ca)
+		cas.Insert(ca.GetID(), ca)
 	}
 
 	deck := &Deck{
-		Cards: cas,
+		cards: cas,
 	}
 
 	return deck, nil
+}
+
+func (d *Deck) AddCard(card *card.Card) {
+	d.cards.Insert(card.GetID(), card)
+}
+
+func (d *Deck) DelCard(card string) error {
+	return d.cards.Delete(card)
+}
+
+func (d *Deck) HasCard(card string) bool {
+	return d.cards.HasKey(card)
 }

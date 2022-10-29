@@ -33,6 +33,8 @@ var (
 
 	ErrNotEnoughPlayers = errors.New("players not enough")
 
+	ErrNotFoundCard   = errors.New("card not found")
+	ErrNotFoundGroup  = errors.New("group not found")
 	ErrNotFoundPlayer = errors.New("player not found")
 	ErrNotFoundUser   = errors.New("user not found")
 

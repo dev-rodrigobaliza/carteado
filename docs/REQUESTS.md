@@ -61,7 +61,7 @@ table enter (public):
 	"service": "table",
 	"resource": "enter",
 	"data": {
-		"table_id": "gid-5fd5c570a0100cb"
+		"table_id": "tid-5fe9db7f600000a"
 	}
 }
 
@@ -71,7 +71,7 @@ table enter (private):
 	"service": "table",
 	"resource": "enter",
 	"data": {
-		"table_id": "gid-5fd5c570a0100cb",
+		"table_id": "tid-5fe9db7f600000a",
 		"secret": "secret"
 	}
 }
@@ -82,7 +82,7 @@ table leave:
 	"service": "table",
 	"resource": "leave",
 	"data": {
-		"table_id": "gid-5fd571f700100cb"
+		"table_id": "tid-5fe9db7f600000a"
 	}
 }
 
@@ -92,7 +92,7 @@ table remove:
 	"service": "table",
 	"resource": "remove",
 	"data": {
-		"table_id": "gid-5fd571f700100cb"
+		"table_id": "tid-5fe9db7f600000a"
 	}
 }
 
@@ -102,6 +102,42 @@ table status:
 	"service": "table",
 	"resource": "status",
 	"data": {
-		"table_id": "gid-5fde6d1a300000a"
+		"table_id": "tid-5feb5ab5100000a"
+	}
+}
+
+table group (enter):
+{
+	"request_id": 1,
+	"service": "table",
+	"resource": "group",
+	"data": {
+		"table_id": "tid-5feb60e8d00000a",
+		"group_id": 1,
+		"action": "enter"
+	}
+}
+
+table group (leave):
+{
+	"request_id": 1,
+	"service": "table",
+	"resource": "group",
+	"data": {
+		"table_id": "tid-5fe9db7f600000a",
+		"group_id": 1,
+		"action": "leave"
+	}
+}
+
+table group (status):
+{
+	"request_id": 1,
+	"service": "table",
+	"resource": "group",
+	"data": {
+		"table_id": "tid-5feb41b7200000a",
+		"group_id": 1,
+		"action": "status"
 	}
 }

@@ -38,8 +38,8 @@ func New(owner *player.Player, secret string, minPlayers, maxPlayers int, allowB
 	}
 
 	groups := safemap.New[int, *group.Group]()
-	for i := 0; i < game.GetMaxGroups(); i++ {
-		group := group.New(game.GetMinPlayersGroup(), game.GetMaxPlayersGroup())
+	for i := 1; i <= game.GetMaxGroups(); i++ {
+		group := group.New(i, game.GetMinPlayersGroup(), game.GetMaxPlayersGroup())
 		groups.Insert(i, group)
 	}
 
@@ -95,12 +95,52 @@ func (t *Table) AddPlayer(player *player.Player, secret string) error {
 	}
 	// add player
 	t.players.Insert(player.UUID, player)
+	player.TableID = t.id
 
 	return nil
 }
 
+func (t *Table) AddGroupPlayer(group int, player *player.Player) error {
+	// basic validation
+	if group == 0 || !t.groups.HasKey(group) {
+		return errors.ErrNotFoundGroup
+	}
+	if player == nil {
+		return errors.ErrNotFoundPlayer
+	}
+	if t.state != table.StateStart {
+		return errors.ErrStartedGame
+	}
+	// remove from previous group
+	if player.GroupID > 0 {
+		g, err := t.groups.GetOneValue(player.GroupID)
+		if err == nil || err == errors.ErrMinPlayers {
+			// TODO (@dev-rodrigobaliza) should stop the game ???
+			g.DelPlayer(player.UUID)
+		}
+
+	}
+	// add player to group
+	g, _ := t.groups.GetOneValue(group)
+	return g.AddPlayer(player)
+}
+
 func (t *Table) CheckSecret(secret string) bool {
 	return t.secret == "" || t.secret == secret
+}
+
+func (t *Table) DelGroupPlayer(group int, player string) error {
+	// basic validation
+	if group == 0 || !t.groups.HasKey(group) {
+		return errors.ErrNotFoundGroup
+	}
+	if player == "" {
+		return errors.ErrNotFoundPlayer
+	}
+	// remove player from group
+	g, _ := t.groups.GetOneValue(group)
+
+	return g.DelPlayer(player)
 }
 
 func (t *Table) DelPlayer(player string) error {
@@ -126,7 +166,7 @@ func (t *Table) DelPlayer(player string) error {
 	// remove from group
 	if groupID > 0 {
 		t.groups.Delete(groupID)
-		// TODO (@dev-rodrigobaliza) check if game is running and permits incomplet groups playing
+		// TODO (@dev-rodrigobaliza) check if game is running and permits incomplete groups playing
 	}
 	// validate table rules
 	if t.players.IsEmpty() {
@@ -141,6 +181,16 @@ func (t *Table) DelPlayer(player string) error {
 
 func (t *Table) GetAllowBots() bool {
 	return t.allowBots
+}
+
+func (t *Table) GetGroup(groupID int) (*group.Group, error) {
+	// basic validation
+	if groupID == 0 || !t.groups.HasKey(groupID) {
+		return nil, errors.ErrNotFoundGroup
+	}
+	group, _ := t.groups.GetOneValue(groupID)
+
+	return group, nil
 }
 
 func (t *Table) GetID() string {
@@ -165,6 +215,10 @@ func (t *Table) GetPlayers() []string {
 
 func (t *Table) GetPlayersCount() int {
 	return t.players.Size()
+}
+
+func (t *Table) HasGroup(groupID int) bool {
+	return t.groups.HasKey(groupID)
 }
 
 func (t *Table) HasPlayer(playerID string) bool {
@@ -199,29 +253,31 @@ func (t *Table) Stop(force bool) {
 }
 
 func (t *Table) ToResponse() *response.Table {
-	pls := make([]*response.Player, 0)
+	spectators := make([]*response.Player, 0)
 	players := t.players.GetAllValues()
 	for _, player := range players {
-		pls = append(pls, player.ToResponse())
-	}
-
-	grs := make([]*response.Group, 0)
-	groups := t.groups.GetAllValues()
-	for _, group := range groups {
-		if group.GetPlayersCount() > 0 {
-			grs = append(grs, group.ToResponse())
+		if player.GroupID == 0 {
+			spectators = append(spectators, player.ToResponse())
 		}
 	}
 
-	wis := make([]*response.Group, 0)
+	groups := make([]*response.Group, 0)
+	grs := t.groups.GetAllValues()
+	for _, group := range grs {
+		if group.GetPlayersCount() > 0 {
+			groups = append(groups, group.ToResponse())
+		}
+	}
+
+	winners := make([]*response.Group, 0)
 	for _, w := range t.winners {
 		winner, err := t.groups.GetOneValue(w)
 		if err == nil {
-			wis = append(wis, winner.ToResponse())
+			winners = append(winners, winner.ToResponse())
 		}
 	}
 
-	ta := response.NewTable(t.id, t.gameMode.String(), t.owner, t.IsPrivate(), pls, grs, wis)
+	ta := response.NewTable(t.id, t.gameMode.String(), t.owner, t.IsPrivate(), t.players.Size(), spectators, groups, winners)
 
 	return ta
 }

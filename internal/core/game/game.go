@@ -5,6 +5,7 @@ import (
 )
 
 type IGame interface {
+	GetDeckConfig() *game.DeckConfig
 	GetMaxGroups() int
 	GetMaxPlayersGroup() int
 	GetMinPlayersGroup() int

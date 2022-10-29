@@ -3,7 +3,6 @@ package request
 import "github.com/goccy/go-json"
 
 type WSRequest struct {
-	PlayerID  string                 `json:"player_id,omitempty"`
 	RequestID uint64                 `json:"request_id"`
 	Service   string                 `json:"service"`
 	Resource  string                 `json:"resource"`

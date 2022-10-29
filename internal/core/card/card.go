@@ -1,10 +1,13 @@
 package card
 
 import (
+	"github.com/dev-rodrigobaliza/carteado/consts"
 	"github.com/dev-rodrigobaliza/carteado/errors"
+	"github.com/dev-rodrigobaliza/carteado/utils"
 )
 
 type Card struct {
+	id   string
 	face *Face
 	suit *Suit
 }
@@ -26,11 +29,16 @@ func New(face, suit string, faceValue, suitValue int, joker bool) (*Card, error)
 	}
 
 	card := &Card{
+		id:   utils.NewUUID(consts.CARD_PREFIX_ID),
 		face: f,
 		suit: s,
 	}
 
 	return card, nil
+}
+
+func (c *Card) GetID() string {
+	return c.id
 }
 
 func (c *Card) Graphic(face bool) string {

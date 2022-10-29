@@ -13,7 +13,7 @@ func (s *Saloon) resourceAdminStatus(player *pl.Player, message *request.WSReque
 	}
 	response := s.getServerStatusResponse(authenticatedOnly)
 
-	s.sendResponseSuccess(player, message, "server status", response)
+	s.sendResponseSuccess(player, message, "status server", response)
 }
 
 func (s *Saloon) serviceAdmin(player *pl.Player, message *request.WSRequest) {

@@ -12,6 +12,7 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/internal/core/table"
 	"github.com/dev-rodrigobaliza/carteado/internal/security/paseto"
 	"github.com/dev-rodrigobaliza/carteado/pkg/safemap"
+	"github.com/dev-rodrigobaliza/carteado/utils"
 	"github.com/gofiber/websocket/v2"
 )
 
@@ -86,6 +87,7 @@ func (s *Saloon) Start() {
 			s.debug("*** server status: %v", s.getServerStatusResponse(false))
 
 		case player := <-s.delChan:
+			// TODO (@dev-rodrigobaliza) remove from table, group and other stuff
 			err := s.players.Delete(player.UUID)
 			if err != nil {
 				s.debug("error removing player: %s", err.Error())
@@ -116,8 +118,13 @@ func (s *Saloon) delTable(table *table.Table) error {
 	return s.tables.Delete(table.GetID())
 }
 
-func (s *Saloon) getTable(id string) (*table.Table, error) {
-	return s.tables.GetOneValue(id)
+func (s *Saloon) getTable(tableID string) (*table.Table, error) {
+	t, err := s.tables.GetOneValue(tableID)
+	if err != nil {
+		return nil, err
+	}
+
+	return t, nil
 }
 
 func (s *Saloon) processMessages() {
@@ -127,10 +134,10 @@ func (s *Saloon) processMessages() {
 		var wsMessage request.WSRequest
 		err := wsMessage.FromBytes(message.Data)
 		if err != nil {
-			log.Printf("!!! error parsing player websocket message [%s] from %s", message.Data, message.Player)
+			log.Printf("!!! message from [%s] - error parsing player websocket [%s]", message.Player, message.Data)
 			s.sendResponseError(message.Player, nil, "invalid message", err)
 		} else {
-			s.debug("--- message received [%s] from [%s]", message.Data, message.Player)
+			s.debug("--- message from [%s] - [%s]", message.Player, utils.CompactJson(message.Data))
 			s.ProcessPlayerMessage(message.Player, wsMessage)
 		}
 	}

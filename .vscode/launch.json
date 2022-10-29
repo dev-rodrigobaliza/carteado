@@ -20,6 +20,14 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/client/main.go",
             "args": [],
+        },
+        {
+            "name": "playground",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/playground/main.go",
+            "args": [],
         }
     ]
 }

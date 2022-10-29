@@ -2,6 +2,7 @@ package player
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/dev-rodrigobaliza/carteado/consts"
@@ -95,7 +96,8 @@ func (p *Player) ToResponse() *response.Player {
 	} else {
 		name = p.User.Name
 	}
-	player := response.NewPlayer(p.UUID, name)
+	groupID := strconv.Itoa(p.GroupID)
+	player := response.NewPlayer(p.UUID, name, p.TableID, groupID)
 
 	return player
 }

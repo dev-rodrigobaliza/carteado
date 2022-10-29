@@ -1,6 +1,7 @@
 package saloon
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/dev-rodrigobaliza/carteado/consts"
@@ -11,42 +12,6 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/internal/core/table"
 )
 
-func (s *Saloon) resourceTableAddPlayer(player *pl.Player, message *request.WSRequest) {
-	// input validation
-	tableID := s.getTableID(message)
-	if tableID == "" {
-		s.sendResponseError(player, message, "table id invalid", nil)
-		return
-	}
-	secret, ok := message.Data["secret"].(string)
-	if !ok {
-		secret = ""
-	}
-	// database validation
-	// TODO (@dev-rodrigobaliza) database validation ???
-	// table validation
-	table, err := s.getTable(tableID)
-	if err != nil || table == nil {
-		s.sendResponseError(player, message, "table id invalid", nil)
-		return
-	}
-	// enter table (sit maybe?)
-	err = table.AddPlayer(player, secret)
-	if err != nil {
-		s.sendResponseError(player, message, "enter table failed", err)
-		return
-	}
-	// TODO (@dev-rodrigobaliza) check if player was in another table and remove it from there
-	player.TableID = table.GetID()
-	// make reponse
-	response := make(map[string]interface{})
-	response["table"] = table.ToResponse()
-	// send response
-	s.sendResponseSuccess(player, message, "enter table", response)
-	// debug log
-	s.debug("=== table enter %v", response)
-}
-
 func (s *Saloon) resourceTableCreate(player *pl.Player, message *request.WSRequest) {
 	// input validation
 	strGameMode, ok := message.Data["game_mode"].(string)
@@ -54,6 +19,7 @@ func (s *Saloon) resourceTableCreate(player *pl.Player, message *request.WSReque
 		s.sendResponseError(player, message, "game mode invalid", nil)
 		return
 	}
+	// TODO (@dev-rodrigobaliza) use default values from game mode
 	minPlayers, ok := message.Data["min_players"].(float64)
 	if !ok {
 		s.sendResponseError(player, message, "min players invalid", nil)
@@ -90,6 +56,10 @@ func (s *Saloon) resourceTableCreate(player *pl.Player, message *request.WSReque
 	}
 	// database validation
 	// TODO (@dev-rodrigobaliza) database validation ???
+	// if player is registered in other table, remove from there and register here
+	if player.TableID != "" {
+		s.resourceTableLeave(player, message, player.TableID)
+	}
 	// create new table
 	table, err := table.New(player, secret, int(minPlayers), int(maxPlayers), allowBots, gameMode)
 	if err != nil {
@@ -98,14 +68,8 @@ func (s *Saloon) resourceTableCreate(player *pl.Player, message *request.WSReque
 	}
 	// add table to table list
 	s.addTable(table)
-	// if player is registered in other table, remove from there and register here
-	if player.TableID != "" {
-		s.resourceTableRemovePlayer(player, message, player.TableID)
-	}
-	player.TableID = table.GetID()
 	// make response
-	response := make(map[string]interface{})
-	response["table"] = table.ToResponse()
+	response := s.getTableStatus(table)
 	// send response
 	s.sendResponseSuccess(player, message, "table created", response)
 	// debug log
@@ -147,7 +111,104 @@ func (s *Saloon) resourceTableDelete(player *pl.Player, message *request.WSReque
 	s.debug("=== table remove %v", response)
 }
 
-func (s *Saloon) resourceTableRemovePlayer(player *pl.Player, message *request.WSRequest, tableID string) {
+func (s *Saloon) resourceTableEnter(player *pl.Player, message *request.WSRequest) {
+	// input validation
+	tableID := s.getTableID(message)
+	if tableID == "" {
+		s.sendResponseError(player, message, "table id invalid", nil)
+		return
+	}
+	secret, ok := message.Data["secret"].(string)
+	if !ok {
+		secret = ""
+	}
+	// database validation
+	// TODO (@dev-rodrigobaliza) database validation ???
+	// table validation
+	table, err := s.getTable(tableID)
+	if err != nil || table == nil {
+		s.sendResponseError(player, message, "table id invalid", nil)
+		return
+	}
+	// if player is registered in other table, remove from there and register here
+	if player.TableID != "" {
+		s.resourceTableLeave(player, message, player.TableID)
+	}
+	// enter table (sit maybe?)
+	err = table.AddPlayer(player, secret)
+	if err != nil {
+		s.sendResponseError(player, message, "enter table failed", err)
+		return
+	}
+	// make reponse
+	response := s.getTableStatus(table)
+	// send response
+	s.sendResponseSuccess(player, message, "enter table", response)
+	// debug log
+	s.debug("=== table enter %v", response)
+}
+
+func (s *Saloon) resourceTableGroup(player *pl.Player, message *request.WSRequest) {
+	// input validation
+	tableID := s.getTableID(message)
+	if tableID == "" {
+		s.sendResponseError(player, message, "table id invalid", nil)
+		return
+	}
+	groupID := s.getGroupID(message)
+	if groupID == 0 {
+		s.sendResponseError(player, message, "group id invalid", nil)
+		return
+	}
+	action := s.getAction(message)
+	if action == "" {
+		s.sendResponseError(player, message, "action invalid", nil)
+		return
+	}
+	// database validation
+	// TODO (@dev-rodrigobaliza) database validation ???
+	// table validation
+	table, err := s.getTable(tableID)
+	if err != nil || table == nil {
+		s.sendResponseError(player, message, "table id invalid", nil)
+		return
+	}
+	if !table.HasGroup(groupID) {
+		s.sendResponseError(player, message, "group id invalid", nil)
+		return
+	}
+	var response map[string]interface{}
+	switch action {
+	case "enter":
+		err = table.AddGroupPlayer(groupID, player)
+		if err != nil || table == nil {
+			s.sendResponseError(player, message, "enter group failed", nil)
+			return
+		}
+		response = s.getTableStatus(table)
+
+	case "leave":
+		err = table.DelGroupPlayer(groupID, player.UUID)
+		if err != nil || table == nil {
+			s.sendResponseError(player, message, "leave group failed", nil)
+			return
+		}
+		response = s.getTableStatus(table)
+
+	case "status":
+		response = s.getTableGroupStatus(table, groupID)
+
+	default:
+		s.sendResponseError(player, message, "action invalid", nil)
+		return
+	}
+	// send response
+	s.sendResponseSuccess(player, message, fmt.Sprintf("%s table group", action), response)
+	// debug log
+	s.debug("=== table group %s %v", action, response)
+}
+
+func (s *Saloon) resourceTableLeave(player *pl.Player, message *request.WSRequest, tableID string) {
 	// empty tableID means request is external (client)
 	// otherwise request is internal, (server, probably player leaving one table to create another)
 	internal := (tableID != "")
@@ -215,7 +276,7 @@ func (s *Saloon) resourceTableRemoveForced(table *table.Table, force bool, err e
 	}
 }
 
-func (s *Saloon) resourceTableStartGame(player *pl.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableStart(player *pl.Player, message *request.WSRequest) {
 	// input validation
 	tableID := s.getTableID(message)
 	if tableID == "" {
@@ -265,11 +326,9 @@ func (s *Saloon) resourceTableStatus(player *pl.Player, message *request.WSReque
 		s.sendResponseError(player, message, "table id invalid", nil)
 		return
 	}
-	// make reponse
-	response := make(map[string]interface{})
-	response["table"] = table.ToResponse()
 	// send response
-	s.sendResponseSuccess(player, message, "table status", response)
+	response := s.getTableStatus(table)
+	s.sendResponseSuccess(player, message, "status table", response)
 	// debug log
 	s.debug("=== table status %v", response)
 }
@@ -280,16 +339,19 @@ func (s *Saloon) serviceTable(player *pl.Player, message *request.WSRequest) {
 		s.resourceTableCreate(player, message)
 
 	case "enter":
-		s.resourceTableAddPlayer(player, message)
+		s.resourceTableEnter(player, message)
+
+	case "group":
+		s.resourceTableGroup(player, message)
 
 	case "leave":
-		s.resourceTableRemovePlayer(player, message, "")
+		s.resourceTableLeave(player, message, "")
 
 	case "remove":
 		s.resourceTableDelete(player, message)
 
 	case "start":
-		s.resourceTableStartGame(player, message)
+		s.resourceTableStart(player, message)
 
 	case "status":
 		s.resourceTableStatus(player, message)

@@ -42,6 +42,9 @@ func (s *Saloon) resourceAuthLogin(player *player.Player, message *request.WSReq
 	response["player"] = player.ToResponse()
 	// send response
 	s.sendResponseSuccess(player, message, player.Greeting(), response)
+	if player.User.IsAdmin {
+		s.sendResponseSuccess(player, message, "server status", s.getServerStatusResponse(false))
+	}
 	// debug log
 	s.debug("=== auth login %v", response)
 }
