@@ -78,7 +78,7 @@ func NewHeight(height string, joker bool) Height {
 func (h Height) String() string {
 	switch h {
 	case HeightAce:
-		return "ace"
+		return "1"
 
 	case Height2:
 		return "2"
@@ -108,19 +108,19 @@ func (h Height) String() string {
 		return "10"
 
 	case HeightJack:
-		return "jack"
+		return "j"
 
 	case HeightQueen:
-		return "queen"
+		return "q"
 
 	case HeightKing:
-		return "king"
+		return "k"
 
 	case HeightJoker:
-		return "joker"
+		return "!"
 
 	default:
-		return "unknown"
+		return "?"
 	}
 }
 

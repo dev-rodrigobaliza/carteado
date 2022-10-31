@@ -33,7 +33,7 @@ make all
 make run
 ```
 
-## test (not implemented yet)
+## test
 ```
 make test
 ```

@@ -1,5 +1,29 @@
 package response
 
+type Card struct {
+	Card  string `json:"card"`
+	Value int    `json:"value"`
+}
+
+func NewCard(card string, value int) *Card {
+	return &Card{
+		Card:  card,
+		Value: value,
+	}
+}
+
+type Deck struct {
+	TableID string  `json:"table_id"`
+	Cards   []*Card `json:"cards"`
+}
+
+func NewDeck(tableID string, cards []*Card) *Deck {
+	return &Deck{
+		TableID: tableID,
+		Cards:   cards,
+	}
+}
+
 type Group struct {
 	ID           int       `json:"id"`
 	MinPlayers   int       `json:"min_players"`

@@ -9,32 +9,44 @@ type Suit struct {
 	Value  int
 }
 
-func NewSuit(suit string, value int, joker bool) (*Suit, error) {
-	var symbol Symbol
-
+func NewSuit(suit string) (*Suit, error) {
 	if suit == "" {
-		symbol = RandomSymbol(joker)
-	} else {
-		symbol = NewSymbol(suit, joker)
-		if symbol == SymbolUnknown {
-			return nil, errors.ErrInvalidCardSuit
-		}
+		return nil, errors.ErrInvalidCardSuit
 	}
 
-	if value == 0 {
-		value = int(symbol)
+	symbol := NewSymbol(suit, false)
+	if symbol == SymbolUnknown {
+		return nil, errors.ErrInvalidCardSuit
 	}
 
 	s := &Suit{
 		Symbol: symbol,
-		Value:  value,
+		Value:  int(symbol),
 	}
 
 	return s, nil
 }
 
-func (s *Suit) Graphic() string {
-	return s.Symbol.Graphic()
+func NewSuitCustom(suit string, value int) (*Suit, error) {
+	s, err := NewSuit(suit)
+	if err != nil {
+		return nil, err
+	}
+
+	s.Value = value
+
+	return s, nil
+}
+
+func NewSuitRandom(joker bool) *Suit {
+	symbol := RandomSymbol(joker)
+
+	suit := &Suit{
+		Symbol: symbol,
+		Value: int(symbol),
+	}
+
+	return suit
 }
 
 func (s *Suit) String() string {

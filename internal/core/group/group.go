@@ -1,6 +1,7 @@
 package group
 
 import (
+	"github.com/dev-rodrigobaliza/carteado/domain/core/group"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
 	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/card"
@@ -15,6 +16,8 @@ type Group struct {
 	maxPlayers int
 	players    *safemap.SafeMap[string, *player.Player]
 	decks      *safemap.SafeMap[string, *deck.Deck]
+	State      group.State
+	NextPlayer int
 }
 
 func New(id, minPlayers, maxPlayers int) *Group {
@@ -31,10 +34,19 @@ func New(id, minPlayers, maxPlayers int) *Group {
 
 func (g *Group) AddCard(player string, card *card.Card) error {
 	// basic validation
-	if !g.decks.HasKey(player) {
+	if player != "" && !g.decks.HasKey(player) {
 		return errors.ErrNotFoundPlayer
 	}
-	deck, _ := g.decks.GetOneValue(player)
+	// empty player means first one (probably unique player)
+	if player == "" {
+		var err error
+		player, err = g.players.GetFirstKey()
+		if err != nil {
+			return err
+		}
+	}
+
+	deck, _ := g.decks.GetOneValue(player, false)
 	deck.AddCard(card)
 
 	return nil
@@ -55,6 +67,8 @@ func (g *Group) AddPlayer(player *player.Player) error {
 	// add player
 	g.players.Insert(player.UUID, player)
 	player.GroupID = g.id
+	// add empty deck
+	g.decks.Insert(player.UUID, deck.New())
 
 	return nil
 }
@@ -64,7 +78,7 @@ func (g *Group) DelCard(player, card string) error {
 	if !g.decks.HasKey(player) {
 		return errors.ErrNotFoundPlayer
 	}
-	deck, _ := g.decks.GetOneValue(player)
+	deck, _ := g.decks.GetOneValue(player, false)
 	if !deck.HasCard(card) {
 		return errors.ErrNotFoundCard
 	}
@@ -78,8 +92,8 @@ func (g *Group) DelPlayer(player string) error {
 		return errors.ErrNotFoundPlayer
 	}
 	// del player
-	p, _ := g.players.GetOneValue(player)
-	err := g.players.Delete(player)
+	p, _ := g.players.GetOneValue(player, false)
+	err := g.players.DeleteKey(player)
 	if err != nil {
 		return errors.ErrNotFoundPlayer
 	}
@@ -93,12 +107,73 @@ func (g *Group) DelPlayer(player string) error {
 	return nil
 }
 
+func (g *Group) GetGroupScore() int {
+	score := 0
+
+	for _, d := range g.decks.GetAllValues() {
+		score += d.GetScore(true)
+	}
+
+	return score
+}
+
 func (g *Group) GetID() int {
 	return g.id
 }
 
 func (g *Group) GetMaxPlayers() int {
 	return g.maxPlayers
+}
+
+func (g *Group) GetNextDeck() (*deck.Deck, error) {
+	d, err := g.decks.GetIndexedValue(g.NextPlayer, false)
+	if err != nil {
+		return nil, errors.ErrNotFoundDeck
+	}
+
+	return d, nil
+}
+
+func (g *Group) GetNextPlayer() (*player.Player, error) {
+	p, err := g.players.GetIndexedValue(g.NextPlayer, false)
+	if err != nil {
+		return nil, errors.ErrNotFoundPlayer
+	}
+
+	return p, nil
+}
+
+func (g *Group) GetPlayerCards(player string) ([]*card.Card, error) {
+	// basic validation
+	if player == "" || !g.players.HasKey(player) {
+		return nil, errors.ErrNotFoundPlayer
+	}
+	// get player deck
+	d, err := g.decks.GetOneValue(player, false)
+	if err != nil {
+		return nil, err
+	}
+	// get player cards from deck
+	var cards []*card.Card
+	for _, c := range d.GetAllCards() {
+		cards = append(cards, c)
+	}
+
+	return cards, nil
+}
+
+func (g *Group) GetPlayerDeck(player string) (*deck.Deck, error) {
+	// basic validation
+	if player == "" || !g.players.HasKey(player) {
+		return nil, errors.ErrNotFoundPlayer
+	}
+	// get player deck
+	d, err := g.decks.GetOneValue(player, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return d, nil
 }
 
 func (g *Group) GetPlayers() []string {

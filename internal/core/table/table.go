@@ -113,7 +113,7 @@ func (t *Table) AddGroupPlayer(group int, player *player.Player) error {
 	}
 	// remove from previous group
 	if player.GroupID > 0 {
-		g, err := t.groups.GetOneValue(player.GroupID)
+		g, err := t.groups.GetOneValue(player.GroupID, false)
 		if err == nil || err == errors.ErrMinPlayers {
 			// TODO (@dev-rodrigobaliza) should stop the game ???
 			g.DelPlayer(player.UUID)
@@ -121,7 +121,7 @@ func (t *Table) AddGroupPlayer(group int, player *player.Player) error {
 
 	}
 	// add player to group
-	g, _ := t.groups.GetOneValue(group)
+	g, _ := t.groups.GetOneValue(group, false)
 	return g.AddPlayer(player)
 }
 
@@ -138,7 +138,7 @@ func (t *Table) DelGroupPlayer(group int, player string) error {
 		return errors.ErrNotFoundPlayer
 	}
 	// remove player from group
-	g, _ := t.groups.GetOneValue(group)
+	g, _ := t.groups.GetOneValue(group, false)
 
 	return g.DelPlayer(player)
 }
@@ -151,11 +151,11 @@ func (t *Table) DelPlayer(player string) error {
 	// get player group
 	groupID := 0
 	if t.players.HasKey(player) {
-		p, _ := t.players.GetOneValue(player)
+		p, _ := t.players.GetOneValue(player, false)
 		groupID = p.GroupID
 	}
 	// del player
-	err := t.players.Delete(player)
+	err := t.players.DeleteKey(player)
 	if err != nil {
 		return errors.ErrNotFoundPlayer
 	}
@@ -165,7 +165,7 @@ func (t *Table) DelPlayer(player string) error {
 	}
 	// remove from group
 	if groupID > 0 {
-		t.groups.Delete(groupID)
+		t.groups.DeleteKey(groupID)
 		// TODO (@dev-rodrigobaliza) check if game is running and permits incomplete groups playing
 	}
 	// validate table rules
@@ -188,7 +188,7 @@ func (t *Table) GetGroup(groupID int) (*group.Group, error) {
 	if groupID == 0 || !t.groups.HasKey(groupID) {
 		return nil, errors.ErrNotFoundGroup
 	}
-	group, _ := t.groups.GetOneValue(groupID)
+	group, _ := t.groups.GetOneValue(groupID, false)
 
 	return group, nil
 }
@@ -229,7 +229,7 @@ func (t *Table) IsPrivate() bool {
 	return t.secret != ""
 }
 
-func (t *Table) Play() error {
+func (t *Table) Start() error {
 	playersCount := t.players.Size()
 	if playersCount < t.minPlayers {
 		return errors.ErrNotEnoughPlayers
@@ -240,8 +240,9 @@ func (t *Table) Play() error {
 	// TODO (@dev-rodrigobaliza) more game conditions to start ???
 	// TODO (@dev-rodrigobaliza) set players order
 	// start the game loop
-	go t.loop()
+	go t.loop(playersCount)
 
+	// TODO (@dev-rodrigobaliza) sende response to players game started
 	return nil
 }
 
@@ -271,7 +272,7 @@ func (t *Table) ToResponse() *response.Table {
 
 	winners := make([]*response.Group, 0)
 	for _, w := range t.winners {
-		winner, err := t.groups.GetOneValue(w)
+		winner, err := t.groups.GetOneValue(w, false)
 		if err == nil {
 			winners = append(winners, winner.ToResponse())
 		}
@@ -282,11 +283,27 @@ func (t *Table) ToResponse() *response.Table {
 	return ta
 }
 
-func (t *Table) loop() {
-	err := t.game.Start()
+func (t *Table) loop(playersCount int) {
+	// pass only groups with players
+	groups := make([]*group.Group, 0)
+	grs := t.groups.GetAllValues()
+	for _, g := range grs {
+		if g.GetPlayersCount() > 0 {
+			groups = append(groups, g)
+		}
+	}
+
+	err := t.game.Start(groups)
 	if err != nil {
 		// TODO (@dev-rodrigobaliza) log this error
 		return
+	}
+
+	// send cards to all players
+	for _, g := range grs {
+		for _, p := range g.GetPlayers() {
+			t.sendPlayerResponse(p, "cards", g)
+		}
 	}
 
 	ticker := time.NewTicker(time.Millisecond * consts.TABLE_INTERVAL_LOOP)
@@ -298,16 +315,45 @@ loop:
 			return
 
 		case <-ticker.C:
-			ok, err := t.game.Loop()
+			ticker.Stop()
+			finished, err := t.game.Loop()
 			if err != nil {
-				// TODO (@dev-rodrigobaliza) log this error
-				break loop
+				p, _ := t.game.GetActivePlayer()
+				g := t.game.GetActiveGroup()
+
+				switch err {
+				case errors.ErrSendPlayerCards:
+					t.sendPlayerResponse(p.UUID, "cards", g)
+
+				case errors.ErrSendPlayerLoose:
+					t.sendPlayerResponse(p.UUID, "loose", g)
+
+				case errors.ErrSendPlayerWin:
+					t.sendPlayerResponse(p.UUID, "win", g)
+				}
 			}
-			if !ok {
+
+			if finished {
 				// TODO (@dev-rodrigobaliza) game finished
 				break loop
 			}
 
+			ticker.Reset(time.Millisecond * consts.TABLE_INTERVAL_LOOP)
+		}
+	}
+
+	ticker.Stop()
+	t.state = table.StateFinish
+
+	if err == nil {
+		grs := t.groups.GetAllValues()
+		for _, g := range grs {
+			p, err := g.GetNextPlayer()
+			if err != nil {
+				continue
+			}
+
+			t.sendPlayerResponse(p.UUID, p.Action, g)
 		}
 	}
 
@@ -315,4 +361,43 @@ loop:
 	if err != nil {
 		// TODO (@dev-rodrigobaliza) log this error
 	}
+}
+
+func (t *Table) sendPlayerResponse(playerID, status string, group *group.Group) {
+	pl, err := t.players.GetOneValue(playerID, false)
+	if err != nil {
+		// TODO (@dev-rodrigobaliza) log this error
+		return
+	}
+
+	response := make(map[string]interface{})
+
+	switch status {
+	case "cards":
+		d, err := group.GetPlayerDeck(playerID)
+		if err != nil {
+			// TODO (@dev-rodrigobaliza) how do we handle this error?
+			return
+		}
+
+		response["table"] = d.ToResponse(t.id, true)
+
+	case "loose", "win":
+		status := table.Status{
+			ID:     t.id,
+			Status: status,
+		}
+
+		response["table"] = status
+
+	default:
+		return
+	}
+
+	if t.state == table.StateFinish {
+		response["table_game"] = "game over"
+	}
+
+	// send response
+	pl.SendResponse(nil, "success", "table game info", response)
 }

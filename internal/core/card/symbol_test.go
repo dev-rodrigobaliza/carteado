@@ -5,28 +5,6 @@ import (
 	"testing"
 )
 
-func TestSymbol_Graphic(t *testing.T) {
-	tests := []struct {
-		name string
-		s    Symbol
-		want string
-	}{
-		{"hearts", SymbolHearts, graphicHearts},
-		{"diamonds", SymbolDiamonds, graphicDiamonds},
-		{"clubs", SymbolClubs, graphicClubs},
-		{"spades", SymbolSpades, graphicSpades},
-		{"joker", SymbolJoker, graphicJoker},
-		{"unknown", SymbolUnknown, graphicUnknown},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.s.Graphic(); got != tt.want {
-				t.Errorf("Symbol.Graphic() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestNewSymbol(t *testing.T) {
 	type args struct {
 		symbol string

@@ -2,8 +2,8 @@ package game
 
 type State int8
 
-func (g State) String() string {
-	return [...]string{"unknown", "betting", "dealing", "playing", "waiting"}[g]
+func (s State) String() string {
+	return [...]string{"unknown", "betting", "dealing", "playing", "waiting"}[s]
 }
 
 func StringToState(gameState string) State {

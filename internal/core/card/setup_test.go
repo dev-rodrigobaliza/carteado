@@ -85,11 +85,11 @@ var (
 	suitHeartsCustomValue = &Suit{SymbolHearts, CUSTOM_VALUE}
 	suitJokerCustomValue  = &Suit{SymbolJoker, CUSTOM_VALUE}
 
-	cardAceHearts, _                 = New(stringAce, stringHearts, 0, 0, false)
-	cardAceHeartsCustomFaceValues, _ = New(stringAce, stringHearts, CUSTOM_VALUE, 0, false)
-	cardAceHeartsCustomSuitValues, _ = New(stringAce, stringHearts, 0, CUSTOM_VALUE, false)
-	cardAceHeartsCustomValues, _     = New(stringAce, stringHearts, CUSTOM_VALUE, CUSTOM_VALUE, false)
-	cardJoker, _                     = New(stringJoker, stringJoker, 0, 0, false)
-	cardJokerForcedFace, _           = New(stringJoker, stringJoker, CUSTOM_VALUE, 0, false)
-	cardJokerForcedSuit, _           = New(stringJoker, stringJoker, 0, CUSTOM_VALUE, false)
+	cardAceHearts, _                 = New(stringAce, stringHearts, false)
+	cardAceHeartsCustomFaceValues, _ = New(stringAce, stringHearts, false)
+	cardAceHeartsCustomSuitValues, _ = New(stringAce, stringHearts, false)
+	cardAceHeartsCustomValues, _     = New(stringAce, stringHearts, false)
+	cardJoker, _                     = New(stringJoker, stringJoker, false)
+	cardJokerForcedFace, _           = New(stringJoker, stringJoker, false)
+	cardJokerForcedSuit, _           = New(stringJoker, stringJoker, false)
 )

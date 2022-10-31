@@ -8,11 +8,11 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/domain/core/game"
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
 	"github.com/dev-rodrigobaliza/carteado/errors"
-	pl "github.com/dev-rodrigobaliza/carteado/internal/core/player"
+	"github.com/dev-rodrigobaliza/carteado/internal/core/player"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/table"
 )
 
-func (s *Saloon) resourceTableCreate(player *pl.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableCreate(player *player.Player, message *request.WSRequest) {
 	// input validation
 	strGameMode, ok := message.Data["game_mode"].(string)
 	if !ok {
@@ -76,7 +76,7 @@ func (s *Saloon) resourceTableCreate(player *pl.Player, message *request.WSReque
 	s.debug("=== table create %v", response)
 }
 
-func (s *Saloon) resourceTableDelete(player *pl.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableDelete(player *player.Player, message *request.WSRequest) {
 	// input validation
 	tableID := s.getTableID(message)
 	if tableID == "" {
@@ -111,7 +111,7 @@ func (s *Saloon) resourceTableDelete(player *pl.Player, message *request.WSReque
 	s.debug("=== table remove %v", response)
 }
 
-func (s *Saloon) resourceTableEnter(player *pl.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableEnter(player *player.Player, message *request.WSRequest) {
 	// input validation
 	tableID := s.getTableID(message)
 	if tableID == "" {
@@ -148,7 +148,34 @@ func (s *Saloon) resourceTableEnter(player *pl.Player, message *request.WSReques
 	s.debug("=== table enter %v", response)
 }
 
-func (s *Saloon) resourceTableGroup(player *pl.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableGame(player *player.Player, message *request.WSRequest) {
+	// input validation
+	tableID := s.getTableID(message)
+	if tableID == "" {
+		s.sendResponseError(player, message, "table id invalid, nil", nil)
+		return
+	}
+	if tableID != player.TableID {
+		s.sendResponseError(player, message, "table id invalid", nil)
+		return
+	}
+	action := s.getAction(message)
+	if tableID == "" {
+		s.sendResponseError(player, message, "action invalid, nil", nil)
+		return
+	}
+	// database validation
+	// TODO (@dev-rodrigobaliza) database validation ???
+	// table validation
+	table, err := s.getTable(tableID)
+	if err != nil || table == nil {
+		s.sendResponseError(player, message, "table id invalid", nil)
+		return
+	}
+	player.Action = action
+}
+
+func (s *Saloon) resourceTableGroup(player *player.Player, message *request.WSRequest) {
 	// input validation
 	tableID := s.getTableID(message)
 	if tableID == "" {
@@ -208,7 +235,7 @@ func (s *Saloon) resourceTableGroup(player *pl.Player, message *request.WSReques
 	s.debug("=== table group %s %v", action, response)
 }
 
-func (s *Saloon) resourceTableLeave(player *pl.Player, message *request.WSRequest, tableID string) {
+func (s *Saloon) resourceTableLeave(player *player.Player, message *request.WSRequest, tableID string) {
 	// empty tableID means request is external (client)
 	// otherwise request is internal, (server, probably player leaving one table to create another)
 	internal := (tableID != "")
@@ -276,7 +303,7 @@ func (s *Saloon) resourceTableRemoveForced(table *table.Table, force bool, err e
 	}
 }
 
-func (s *Saloon) resourceTableStart(player *pl.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableStart(player *player.Player, message *request.WSRequest) {
 	// input validation
 	tableID := s.getTableID(message)
 	if tableID == "" {
@@ -292,12 +319,12 @@ func (s *Saloon) resourceTableStart(player *pl.Player, message *request.WSReques
 		return
 	}
 	// onwnership validation
-	if !player.User.IsAdmin || table.GetOwner() != player.UUID || table.GetOwner() != "" {
+	if !player.User.IsAdmin && table.GetOwner() != player.UUID && table.GetOwner() != "" {
 		s.sendResponseError(player, message, "table id not owned by player", nil)
 		return
 	}
 	// start table
-	err = table.Play()
+	err = table.Start()
 	if err != nil {
 		s.sendResponseError(player, message, "table not started", err)
 		return
@@ -311,7 +338,7 @@ func (s *Saloon) resourceTableStart(player *pl.Player, message *request.WSReques
 	s.debug("=== table start %v", response)
 }
 
-func (s *Saloon) resourceTableStatus(player *pl.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableStatus(player *player.Player, message *request.WSRequest) {
 	// input validation
 	tableID := s.getTableID(message)
 	if tableID == "" {
@@ -333,13 +360,16 @@ func (s *Saloon) resourceTableStatus(player *pl.Player, message *request.WSReque
 	s.debug("=== table status %v", response)
 }
 
-func (s *Saloon) serviceTable(player *pl.Player, message *request.WSRequest) {
+func (s *Saloon) serviceTable(player *player.Player, message *request.WSRequest) {
 	switch message.Resource {
 	case "create":
 		s.resourceTableCreate(player, message)
 
 	case "enter":
 		s.resourceTableEnter(player, message)
+
+	case "game":
+		s.resourceTableGame(player, message)
 
 	case "group":
 		s.resourceTableGroup(player, message)

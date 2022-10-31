@@ -5,28 +5,6 @@ import (
 	"testing"
 )
 
-func TestCard_Graphic(t *testing.T) {
-	type args struct {
-		face bool
-	}
-	tests := []struct {
-		name string
-		c    *Card
-		args args
-		want string
-	}{
-		{"ace hearts without face", cardAceHearts, args{false}, graphicHearts},
-		{"ace hearts with face", cardAceHearts, args{true}, (stringAce + graphicHearts)},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.c.Graphic(tt.args.face); got != tt.want {
-				t.Errorf("Card.Graphic() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestCard_String(t *testing.T) {
 	type args struct {
 		face bool
@@ -70,7 +48,7 @@ func TestCard_Value(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.c.Value(tt.args.face, tt.args.suit); got != tt.want {
+			if got := tt.c.Value(tt.args.suit); got != tt.want {
 				t.Errorf("Card.Value() = %v, want %v", got, tt.want)
 			}
 		})
@@ -104,7 +82,7 @@ func TestNew(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := New(tt.args.face, tt.args.suit, tt.args.faceValue, tt.args.suitValue, tt.args.joker)
+			got, err := New(tt.args.face, tt.args.suit, tt.args.joker)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
 				return

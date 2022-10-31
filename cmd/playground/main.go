@@ -5,6 +5,6 @@ import (
 )
 
 func main() {
-	cardJokerForcedFace, _ := card.New("1", "!", 0, 10, false)
-	println(cardJokerForcedFace.Value(true, true))
+	cardJokerForcedFace, _ := card.New("1", "!", false)
+	println(cardJokerForcedFace.Value(true))
 }

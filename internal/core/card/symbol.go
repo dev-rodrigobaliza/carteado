@@ -39,47 +39,25 @@ func NewSymbol(symbol string, joker bool) Symbol {
 	}
 }
 
-func (s Symbol) Graphic() string {
+func (s Symbol) String() string {
 	switch s {
 	case SymbolHearts:
-		return "♥"
+		return "h"
 
 	case SymbolDiamonds:
-		return "♦"
+		return "d"
 
 	case SymbolClubs:
-		return "♣"
+		return "c"
 
 	case SymbolSpades:
-		return "♠"
+		return "s"
 
 	case SymbolJoker:
 		return "!"
 
 	default:
 		return "?"
-	}
-}
-
-func (s Symbol) String() string {
-	switch s {
-	case SymbolHearts:
-		return "hearts"
-
-	case SymbolDiamonds:
-		return "diamonds"
-
-	case SymbolClubs:
-		return "clubs"
-
-	case SymbolSpades:
-		return "spades"
-
-	case SymbolJoker:
-		return "joker"
-
-	default:
-		return "unknown"
 	}
 }
 

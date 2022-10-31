@@ -102,21 +102,6 @@ func (s *Saloon) loginPlayer(player *pl.Player) {
 	}
 }
 
-func (s *Saloon) sendResponse(player *pl.Player, request *request.WSRequest, status, message string, data map[string]interface{}) {
-	response := &response.WSResponse{
-		Status:  status,
-		Message: message,
-	}
-	if request != nil {
-		response.RequestID = request.RequestID
-	}
-	if len(data) > 0 {
-		response.Data = data
-	}
-
-	player.Send(response.ToBytes())
-}
-
 func (s *Saloon) sendResponseError(player *pl.Player, request *request.WSRequest, message string, err error) {
 	var data map[string]interface{}
 	if err != nil && s.cfg.Debug {
@@ -124,9 +109,9 @@ func (s *Saloon) sendResponseError(player *pl.Player, request *request.WSRequest
 		data["error"] = err.Error()
 	}
 
-	s.sendResponse(player, request, "error", message, data)
+	player.SendResponse(request, "error", message, data)
 }
 
 func (s *Saloon) sendResponseSuccess(player *pl.Player, request *request.WSRequest, message string, data map[string]interface{}) {
-	s.sendResponse(player, request, "success", message, data)
+	player.SendResponse(request, "success", message, data)
 }

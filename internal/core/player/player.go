@@ -7,6 +7,7 @@ import (
 
 	"github.com/dev-rodrigobaliza/carteado/consts"
 	pl "github.com/dev-rodrigobaliza/carteado/domain/core/player"
+	"github.com/dev-rodrigobaliza/carteado/domain/request"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
 	"github.com/dev-rodrigobaliza/carteado/utils"
 	"github.com/gofiber/websocket/v2"
@@ -27,6 +28,7 @@ type Player struct {
 	TableID string
 	// mounted after enter group
 	GroupID int
+	Action  string
 }
 
 func New(conn *websocket.Conn, boardChan chan pl.Message[*Player], delChan chan *Player) *Player {
@@ -81,8 +83,19 @@ func (p *Player) Login(user *response.User) bool {
 	return userOut
 }
 
-func (p *Player) Send(data []byte) {
-	p.send <- data
+func (p *Player) SendResponse(request *request.WSRequest, status, message string, data map[string]interface{}) {
+	response := &response.WSResponse{
+		Status:  status,
+		Message: message,
+	}
+	if request != nil {
+		response.RequestID = request.RequestID
+	}
+	if len(data) > 0 {
+		response.Data = data
+	}
+
+	p.send <- response.ToBytes()
 }
 
 func (p *Player) String() string {

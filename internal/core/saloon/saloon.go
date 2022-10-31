@@ -88,7 +88,7 @@ func (s *Saloon) Start() {
 
 		case player := <-s.delChan:
 			// TODO (@dev-rodrigobaliza) remove from table, group and other stuff
-			err := s.players.Delete(player.UUID)
+			err := s.players.DeleteKey(player.UUID)
 			if err != nil {
 				s.debug("error removing player: %s", err.Error())
 			} else {
@@ -115,11 +115,11 @@ func (s *Saloon) addTable(table *table.Table) {
 }
 
 func (s *Saloon) delTable(table *table.Table) error {
-	return s.tables.Delete(table.GetID())
+	return s.tables.DeleteKey(table.GetID())
 }
 
 func (s *Saloon) getTable(tableID string) (*table.Table, error) {
-	t, err := s.tables.GetOneValue(tableID)
+	t, err := s.tables.GetOneValue(tableID, false)
 	if err != nil {
 		return nil, err
 	}

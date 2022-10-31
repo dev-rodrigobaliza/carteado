@@ -9,28 +9,44 @@ type Face struct {
 	Value  int
 }
 
-func NewFace(face string, value int, joker bool) (*Face, error) {
-	var height Height
-
+func NewFace(face string) (*Face, error) {
 	if face == "" {
-		height = RandomHeight(joker)
-	} else {
-		height = NewHeight(face, joker)
-		if height == HeightUnknown {
-			return nil, errors.ErrInvalidCardFace
-		}
+		return nil, errors.ErrInvalidCardFace
 	}
 
-	if value == 0 {
-		value = int(height)
+	height := NewHeight(face, false)
+	if height == HeightUnknown {
+		return nil, errors.ErrInvalidCardFace
 	}
 
 	f := &Face{
 		Height: height,
-		Value: value,
+		Value:  int(height),
 	}
 
 	return f, nil
+}
+
+func NewFaceCustom(face string, value int) (*Face, error) {
+	f, err := NewFace(face)
+	if err != nil {
+		return nil, err
+	}
+
+	f.Value = value
+
+	return f, nil
+}
+
+func NewFaceRandom(joker bool) *Face {
+	height := RandomHeight(joker)
+
+	face := &Face{
+		Height: height,
+		Value:  int(height),
+	}
+
+	return face
 }
 
 func (f *Face) String() string {

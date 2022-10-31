@@ -2,8 +2,8 @@ package table
 
 type State int8
 
-func (g State) String() string {
-	return [...]string{"unknown", "start", "play", "finish"}[g]
+func (s State) String() string {
+	return [...]string{"unknown", "start", "play", "finish"}[s]
 }
 
 func StringToState(gameState string) State {

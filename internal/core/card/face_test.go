@@ -67,7 +67,7 @@ func TestNewFace(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewFace(tt.args.face, tt.args.value, tt.args.joker)
+			got, err := NewFace(tt.args.face)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewFace() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -79,7 +79,7 @@ func TestNewFace(t *testing.T) {
 	}
 	//random no joker
 	for i := 0; i < 100; i++ {
-		face, err := NewFace("", 0, false)
+		face, err := NewFace("")
 		if (err != nil) {
 			t.Errorf("NewFace() random with no joker error = %v", err)
 			return
@@ -91,7 +91,7 @@ func TestNewFace(t *testing.T) {
 	//random joker
 	gotJoker := 0
 	for i := 0; i < 100; i++ {
-		face, err := NewFace("", 0, true)
+		face, err := NewFace("")
 		if (err != nil) {
 			t.Errorf("NewFace() random with joker error = %v", err)
 			return

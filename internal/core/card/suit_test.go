@@ -5,28 +5,6 @@ import (
 	"testing"
 )
 
-func TestSuit_Graphic(t *testing.T) {
-	tests := []struct {
-		name string
-		s    *Suit
-		want string
-	}{
-		{"hearts", suitHearts, graphicHearts},
-		{"diamonds", suitDiamonds, graphicDiamonds},
-		{"clubs", suitClubs, graphicClubs},
-		{"spades", suitSpades, graphicSpades},
-		{"joker", suitJoker, graphicJoker},
-		{"unknown", suitUnknown, graphicUnknown},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.s.Graphic(); got != tt.want {
-				t.Errorf("Suit.Graphic() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestSuit_String(t *testing.T) {
 	tests := []struct {
 		name string
@@ -72,7 +50,7 @@ func TestNewSuit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewSuit(tt.args.suit, tt.args.value, tt.args.joker)
+			got, err := NewSuit(tt.args.suit)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewSuit() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -84,7 +62,7 @@ func TestNewSuit(t *testing.T) {
 	}
 	//random no joker
 	for i := 0; i < 100; i++ {
-		suit, err := NewSuit("", 0, false)
+		suit, err := NewSuit("")
 		if (err != nil) {
 			t.Errorf("NewSuit() random with no joker error = %v", err)
 			return
@@ -96,7 +74,7 @@ func TestNewSuit(t *testing.T) {
 	//random joker
 	gotJoker := 0
 	for i := 0; i < 100; i++ {
-		suit, err := NewSuit("", 0, true)
+		suit, err := NewSuit("")
 		if (err != nil) {
 			t.Errorf("NewSuit() random with joker error = %v", err)
 			return
