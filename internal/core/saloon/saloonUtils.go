@@ -56,7 +56,7 @@ func (s *Saloon) getGroupID(message *request.WSRequest) int {
 func (s *Saloon) getTableGroupStatus(table *table.Table, groupID int) map[string]interface{} {
 	group, _ := table.GetGroup(groupID)
 	response := make(map[string]interface{})
-	response["table"] = group.ToResponse()
+	response["table"] = group.ToResponse(false)
 
 	return response
 }
@@ -82,7 +82,7 @@ func (s *Saloon) greetingMesssage(player *pl.Player, message string) {
 	response["server"] = s.cfg.Name
 	response["version"] = s.cfg.Version
 
-	s.sendResponseSuccess(player, nil, message, response)
+	player.SendResponse(nil, "info", message, response)
 }
 
 func (s *Saloon) loginPlayer(player *pl.Player) {

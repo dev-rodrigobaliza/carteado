@@ -1,6 +1,7 @@
 package table
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/dev-rodrigobaliza/carteado/consts"
@@ -17,8 +18,9 @@ import (
 
 type Table struct {
 	id         string
-	owner      string
 	secret     string
+	createBy   string
+	startedBy  string
 	minPlayers int
 	maxPlayers int
 	allowBots  bool
@@ -28,6 +30,8 @@ type Table struct {
 	state      table.State
 	gameMode   gm.Mode
 	game       game.IGame
+	createdAt  time.Time
+	startedAt  time.Time
 	done       chan bool
 }
 
@@ -45,7 +49,7 @@ func New(owner *player.Player, secret string, minPlayers, maxPlayers int, allowB
 
 	table := &Table{
 		id:         utils.NewUUID(consts.TABLE_PREFIX_ID),
-		owner:      owner.UUID,
+		createBy:   owner.UUID,
 		secret:     secret,
 		minPlayers: minPlayers,
 		maxPlayers: maxPlayers,
@@ -56,6 +60,7 @@ func New(owner *player.Player, secret string, minPlayers, maxPlayers int, allowB
 		state:      table.StateStart,
 		gameMode:   gameMode,
 		game:       game,
+		createdAt:  time.Now(),
 		done:       make(chan bool),
 	}
 	table.AddPlayer(owner, secret)
@@ -160,8 +165,8 @@ func (t *Table) DelPlayer(player string) error {
 		return errors.ErrNotFoundPlayer
 	}
 	// adjust owner
-	if t.owner == player {
-		t.owner = ""
+	if t.createBy == player {
+		t.createBy = ""
 	}
 	// remove from group
 	if groupID > 0 {
@@ -206,7 +211,7 @@ func (t *Table) GetMinPlayers() int {
 }
 
 func (t *Table) GetOwner() string {
-	return t.owner
+	return t.createBy
 }
 
 func (t *Table) GetPlayers() []string {
@@ -239,10 +244,18 @@ func (t *Table) Start() error {
 	}
 	// TODO (@dev-rodrigobaliza) more game conditions to start ???
 	// TODO (@dev-rodrigobaliza) set players order
+
+	t.startedAt = time.Now()
+	t.state = table.StatePlay
+
+	// send the news to all players
+	response := make(map[string]interface{})
+	response["table_game"] = "game started"
+	t.sendAllPlayersResponse("info", "game status", response)
+
 	// start the game loop
 	go t.loop(playersCount)
-
-	// TODO (@dev-rodrigobaliza) sende response to players game started
+	
 	return nil
 }
 
@@ -258,7 +271,7 @@ func (t *Table) ToResponse() *response.Table {
 	players := t.players.GetAllValues()
 	for _, player := range players {
 		if player.GroupID == 0 {
-			spectators = append(spectators, player.ToResponse())
+			spectators = append(spectators, player.ToResponse(false))
 		}
 	}
 
@@ -266,7 +279,7 @@ func (t *Table) ToResponse() *response.Table {
 	grs := t.groups.GetAllValues()
 	for _, group := range grs {
 		if group.GetPlayersCount() > 0 {
-			groups = append(groups, group.ToResponse())
+			groups = append(groups, group.ToResponse(false))
 		}
 	}
 
@@ -274,11 +287,16 @@ func (t *Table) ToResponse() *response.Table {
 	for _, w := range t.winners {
 		winner, err := t.groups.GetOneValue(w, false)
 		if err == nil {
-			winners = append(winners, winner.ToResponse())
+			winners = append(winners, winner.ToResponse(false))
 		}
 	}
 
-	ta := response.NewTable(t.id, t.gameMode.String(), t.owner, t.IsPrivate(), t.players.Size(), spectators, groups, winners)
+	created := fmt.Sprintf("%d", t.createdAt.UnixMilli())
+	var started string
+	if t.startedAt.After(t.createdAt) {
+		started = fmt.Sprintf("%d", t.startedAt.UnixMilli())
+	}
+	ta := response.NewTable(t.id, t.gameMode.String(), t.createBy, t.startedBy, created, started, t.IsPrivate(), t.players.Size(), spectators, groups, winners)
 
 	return ta
 }
@@ -363,6 +381,10 @@ loop:
 	}
 }
 
+func (t *Table) sendAllPlayersResponse(status, message string, response map[string]interface{}) {
+
+}
+
 func (t *Table) sendPlayerResponse(playerID, status string, group *group.Group) {
 	pl, err := t.players.GetOneValue(playerID, false)
 	if err != nil {
@@ -370,6 +392,7 @@ func (t *Table) sendPlayerResponse(playerID, status string, group *group.Group) 
 		return
 	}
 
+	var message string
 	response := make(map[string]interface{})
 
 	switch status {
@@ -381,14 +404,16 @@ func (t *Table) sendPlayerResponse(playerID, status string, group *group.Group) 
 		}
 
 		response["table"] = d.ToResponse(t.id, true)
+		message = "player cards"
 
 	case "loose", "win":
-		status := table.Status{
+		s := table.Status{
 			ID:     t.id,
 			Status: status,
 		}
 
-		response["table"] = status
+		response["table"] = s
+		message = "game status"
 
 	default:
 		return
@@ -399,5 +424,11 @@ func (t *Table) sendPlayerResponse(playerID, status string, group *group.Group) 
 	}
 
 	// send response
-	pl.SendResponse(nil, "success", "table game info", response)
+	pl.SendResponse(nil, "info", message, response)
+
+	// if status == "cards" {
+	// 	response = make(map[string]interface{})
+	// 	response["table"] = "waiting for player action"
+	// 	pl.SendResponse(nil, "info", "game status", response)
+	// }
 }

@@ -44,9 +44,9 @@ var (
 
 	ErrNotImplemented = errors.New("not implemented")
 
-	ErrSendPlayerCards   = errors.New("send player cards")
-	ErrSendPlayerLoose   = errors.New("send player loose")
-	ErrSendPlayerWin     = errors.New("send player win")
+	ErrSendPlayerCards      = errors.New("send player cards")
+	ErrSendPlayerLoose      = errors.New("send player loose")
+	ErrSendPlayerWin        = errors.New("send player win")
 
 	ErrStartedGame = errors.New("game already started")
 

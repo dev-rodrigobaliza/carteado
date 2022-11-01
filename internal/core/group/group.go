@@ -188,11 +188,11 @@ func (g *Group) HasPlayer(playerID string) bool {
 	return g.players.HasKey(playerID)
 }
 
-func (g *Group) ToResponse() *response.Group {
+func (g *Group) ToResponse(full bool) *response.Group {
 	pls := make([]*response.Player, 0)
 	players := g.players.GetAllValues()
 	for _, player := range players {
-		pls = append(pls, player.ToResponse())
+		pls = append(pls, player.ToResponse(full))
 	}
 
 	gr := response.NewGroup(g.id, g.minPlayers, g.maxPlayers, pls)

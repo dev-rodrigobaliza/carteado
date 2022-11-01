@@ -58,13 +58,11 @@ func NewPlayer(id, name, tableID, groupID string) *Player {
 		ID:   id,
 		Name: name,
 	}
-	if tableID != "" {
-		player.TableID = tableID
-		if groupID == "0" {
-			player.GroupID = ""
-		} else {
-			player.GroupID = groupID
-		}
+	player.TableID = tableID
+	if groupID == "0" {
+		player.GroupID = ""
+	} else {
+		player.GroupID = groupID
 	}
 
 	return player
@@ -73,7 +71,8 @@ func NewPlayer(id, name, tableID, groupID string) *Player {
 type Table struct {
 	ID              string    `json:"id"`
 	Mode            string    `json:"mode"`
-	Owner           string    `json:"owner"`
+	CreatedBy       string    `json:"created_by"`
+	StartedBy       string    `json:"started_by,omitempty"`
 	Private         bool      `json:"private"`
 	SpectatorsCount int       `json:"spectators_count"`
 	Spectators      []*Player `json:"spectators,omitempty"`
@@ -81,13 +80,16 @@ type Table struct {
 	GroupsCount     int       `json:"groups_count"`
 	Groups          []*Group  `json:"groups,omitempty"`
 	Winners         []*Group  `json:"winners,omitempty"`
+	CreatedAt       string    `json:"created_at"`
+	StartedAt       string    `json:"started_at,omitempty"`
 }
 
-func NewTable(id, mode, owner string, private bool, playersCount int, spectators []*Player, groups, winners []*Group) *Table {
+func NewTable(id, mode, createdBy, startedBy, createdAt, startedAt string, private bool, playersCount int, spectators []*Player, groups, winners []*Group) *Table {
 	return &Table{
 		ID:              id,
 		Mode:            mode,
-		Owner:           owner,
+		CreatedBy:       createdBy,
+		StartedBy:       startedBy,
 		Private:         private,
 		SpectatorsCount: len(spectators),
 		Spectators:      spectators,
@@ -95,5 +97,7 @@ func NewTable(id, mode, owner string, private bool, playersCount int, spectators
 		GroupsCount:     len(groups),
 		Groups:          groups,
 		Winners:         winners,
+		CreatedAt:       createdAt,
+		StartedAt:       startedAt,
 	}
 }

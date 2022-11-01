@@ -102,15 +102,21 @@ func (p *Player) String() string {
 	return p.Addr
 }
 
-func (p *Player) ToResponse() *response.Player {
+func (p *Player) ToResponse(full bool) *response.Player {
 	var name string
+	var tableID string
+
 	if p.User == nil {
 		name = "# unauthenticated #"
 	} else {
 		name = p.User.Name
 	}
+	if full {
+		tableID = p.TableID
+	}
+
 	groupID := strconv.Itoa(p.GroupID)
-	player := response.NewPlayer(p.UUID, name, p.TableID, groupID)
+	player := response.NewPlayer(p.UUID, name, tableID, groupID)
 
 	return player
 }
