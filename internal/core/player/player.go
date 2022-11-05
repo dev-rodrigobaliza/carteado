@@ -22,8 +22,9 @@ type Player struct {
 	boardChan chan pl.Message[*Player]
 	delChan   chan *Player
 	// mounted after user login
-	User     *response.User
-	loggedAt time.Time
+	User      *response.User
+	createdAt time.Time
+	loggedAt  time.Time
 	// mounted after enter table
 	TableID string
 	// mounted after enter group
@@ -39,6 +40,7 @@ func New(conn *websocket.Conn, boardChan chan pl.Message[*Player], delChan chan 
 		send:      make(chan []byte, consts.PLAYER_MESSAGE_STACK_SIZE),
 		boardChan: boardChan,
 		delChan:   delChan,
+		createdAt: time.Now(),
 	}
 
 	go player.write()
@@ -105,18 +107,24 @@ func (p *Player) String() string {
 func (p *Player) ToResponse(full bool) *response.Player {
 	var name string
 	var tableID string
+	var logged string
 
 	if p.User == nil {
 		name = "# unauthenticated #"
 	} else {
 		name = p.User.Name
+		logged = fmt.Sprintf("%d", p.loggedAt.UnixMilli())
 	}
 	if full {
 		tableID = p.TableID
 	}
-
+	created := fmt.Sprintf("%d", p.createdAt.UnixMilli())
 	groupID := strconv.Itoa(p.GroupID)
-	player := response.NewPlayer(p.UUID, name, tableID, groupID)
+	if groupID == "0" {
+		groupID = ""
+	}
+	
+	player := response.NewPlayer(p.UUID, name, tableID, groupID, created, logged)
 
 	return player
 }

@@ -37,9 +37,9 @@ func New(cfg *config.App, appService *services.AppService) *Saloon {
 		appService: appService,
 		tables:     safemap.New[string, *table.Table](),
 		players:    safemap.New[string, *player.Player](),
-		boardChan:  make(chan pl.Message[*player.Player], consts.TABLEMANAGER_MESSAGE_STACK_SIZE),
-		addChan:    make(chan *player.Player, consts.TABLEMANAGER_MAX_PLAYERS),
-		delChan:    make(chan *player.Player, consts.TABLEMANAGER_MAX_PLAYERS),
+		boardChan:  make(chan pl.Message[*player.Player], consts.SALOON_MESSAGE_STACK_SIZE),
+		addChan:    make(chan *player.Player, consts.SALOON_MAX_PLAYERS),
+		delChan:    make(chan *player.Player, consts.SALOON_MAX_PLAYERS),
 		doneChan:   make(chan struct{}),
 	}
 

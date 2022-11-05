@@ -15,12 +15,11 @@ import (
 func NewApp(madeBy, name, version, date string, debug bool, assets embed.FS) error {
 	start := time.Now()
 
-	c := config.NewApp(name, version, date, madeBy, debug)
+	c := config.NewApp(name, version, date, madeBy, debug, start)
 	err := c.LoadFromFile(consts.APP_CONFIG_FILENAME)
 	if err != nil {
 		return err
 	}
-	c.StartedAt = start
 
 	showInfo(c)
 	initSecurity(c)

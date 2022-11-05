@@ -7,6 +7,7 @@ var (
 	ErrEmptyTable = errors.New("table is empty")
 
 	ErrExistsPlayer = errors.New("player already exists")
+	ErrExistsPlayerGroup = errors.New("player already in the group")
 
 	ErrFailedOpenFileConfig  = errors.New("failed to open config file")
 	ErrFailedParseFileConfig = errors.New("failed to parse config file")

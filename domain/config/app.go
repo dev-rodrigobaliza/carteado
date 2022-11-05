@@ -14,20 +14,21 @@ type App struct {
 	Name      string    `json:"-"`
 	Version   string    `json:"-"`
 	Debug     bool      `json:"-"`
-	StartedAt time.Time `json:"-"`
+	CreatedAt time.Time `json:"-"`
 	Timezone  string    `json:"timezone,omitempty"`
 	Database  *Database `json:"database,omitempty"`
 	HTTP      *HTTP     `json:"http,omitempty"`
 	Security  *Security `json:"security,omitempty"`
 }
 
-func NewApp(name, version, date, madeBy string, debug bool) *App {
+func NewApp(name, version, date, madeBy string, debug bool, createdAt time.Time) *App {
 	return &App{
-		Date:    date,
-		MadeBy:  madeBy,
-		Name:    name,
-		Version: version,
-		Debug:   debug,
+		Date:      date,
+		MadeBy:    madeBy,
+		Name:      name,
+		Version:   version,
+		Debug:     debug,
+		CreatedAt: createdAt,
 	}
 }
 

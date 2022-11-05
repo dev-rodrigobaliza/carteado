@@ -1,6 +1,9 @@
 package group
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/dev-rodrigobaliza/carteado/domain/core/group"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
 	"github.com/dev-rodrigobaliza/carteado/errors"
@@ -18,6 +21,7 @@ type Group struct {
 	decks      *safemap.SafeMap[string, *deck.Deck]
 	State      group.State
 	NextPlayer int
+	createdAt  time.Time
 }
 
 func New(id, minPlayers, maxPlayers int) *Group {
@@ -63,6 +67,10 @@ func (g *Group) AddPlayer(player *player.Player) error {
 	}
 	if g.players.Size() >= g.maxPlayers {
 		return errors.ErrMaxPlayers
+	}
+	// check if its time to populate createdAt
+	if g.GetPlayersCount() == 0 {
+		g.createdAt = time.Now()
 	}
 	// add player
 	g.players.Insert(player.UUID, player)
@@ -180,6 +188,25 @@ func (g *Group) GetPlayers() []string {
 	return g.players.GetAllKeys()
 }
 
+func (g *Group) GetPlayerScore(player string) (int, error) {
+	// basic validation
+	if player == "" || !g.players.HasKey(player) {
+		return 0, errors.ErrNotFoundPlayer
+	}
+	// get player deck
+	d, err := g.decks.GetOneValue(player, false)
+	if err != nil {
+		return 0, err
+	}
+	// get player cards from deck
+	score := 0
+	for _, c := range d.GetAllCards() {
+		score += c.Value(true)
+	}
+
+	return score, nil
+}
+
 func (g *Group) GetPlayersCount() int {
 	return g.players.Size()
 }
@@ -195,7 +222,12 @@ func (g *Group) ToResponse(full bool) *response.Group {
 		pls = append(pls, player.ToResponse(full))
 	}
 
-	gr := response.NewGroup(g.id, g.minPlayers, g.maxPlayers, pls)
+	var created string
+	if g.GetPlayersCount() > 0 {
+		created = fmt.Sprintf("%d", g.createdAt.UnixMilli())
+	}
+
+	gr := response.NewGroup(g.id, g.minPlayers, g.maxPlayers, pls, created)
 
 	return gr
 }

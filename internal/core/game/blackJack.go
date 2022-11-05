@@ -1,9 +1,13 @@
 package game
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/dev-rodrigobaliza/carteado/consts"
 	"github.com/dev-rodrigobaliza/carteado/domain/core/game"
 	gru "github.com/dev-rodrigobaliza/carteado/domain/core/group"
+	"github.com/dev-rodrigobaliza/carteado/domain/response"
 	"github.com/dev-rodrigobaliza/carteado/errors"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/deck"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/group"
@@ -18,7 +22,10 @@ type BlackJack struct {
 	state           game.State
 	round           uint64
 	group           int
+	groupChanged    bool
 	dealerDeck      *deck.Deck
+	createdAt       time.Time
+	startedAt       time.Time
 }
 
 // This line is for get feedback in case we are not implementing the interface correctly
@@ -31,6 +38,7 @@ func NewBlackJack() *BlackJack {
 		minPlayersGroup: consts.GAME_BLACKJACK_MIN_PLAYERS_GROUP,
 		state:           game.StateWaiting,
 		round:           0,
+		createdAt:       time.Now(),
 	}
 }
 
@@ -100,13 +108,12 @@ func (g *BlackJack) SetState(gameState game.State) {
 	g.state = gameState
 }
 
-// TODO (@dev-rodrigobaliza) table calls start, here change the state to dealing, if not occurs error table will call loop until the game is finished
 func (g *BlackJack) Start(groups []*group.Group) error {
 	if g.state != game.StateWaiting {
 		return errors.ErrInvalidGameState
 	}
 	groupsCount := len(groups)
-	if g.minPlayersGroup < groupsCount {
+	if groupsCount < g.minPlayersGroup {
 		return errors.ErrNotEnoughPlayers
 	}
 
@@ -120,9 +127,11 @@ func (g *BlackJack) Start(groups []*group.Group) error {
 		return err
 	}
 
+	g.startedAt = time.Now()
 	g.state = game.StatePlaying
 	g.round = 0
 	g.group = 0
+	g.groupChanged = false
 
 	return nil
 }
@@ -134,6 +143,23 @@ func (g *BlackJack) Stop() error {
 	// TODO (@dev-rodrigobaliza) finish here all the loose ends
 
 	return nil
+}
+
+func (g *BlackJack) ToResponse() *response.Game {
+	state := g.state.String()
+	created := fmt.Sprintf("%d", g.createdAt.UnixMilli())
+	var started string
+	if g.startedAt.After(g.createdAt) {
+		started = fmt.Sprintf("%d", g.startedAt.UnixMilli())
+	}
+
+	game := &response.Game{
+		State:     state,
+		CreatedAt: created,
+		StartedAt: started,
+	}
+
+	return game
 }
 
 func (g *BlackJack) bet() (bool, error) {
@@ -183,18 +209,24 @@ func (g *BlackJack) checkHighScore() (bool, error) {
 }
 
 func (g *BlackJack) checkWinner(group *group.Group, player *player.Player, state gru.State) (bool, error) {
+	// clear player action
 	player.Action = ""
-
+	// get player score
 	points := group.GetGroupScore()
+	// check game rules
 	if points < consts.GAME_BLACKJACK_WINNING_SCORE {
+		// can keep playing
 		group.State = state
+
 		return false, nil
-	} else if points == consts.GAME_BLACKJACK_WINNING_SCORE {
-		group.State = gru.StateFinish
+	}
+	// game over for this player
+	group.State = gru.StateFinish
+	if points == consts.GAME_BLACKJACK_WINNING_SCORE {
+		// we have a winner :)
 		return true, errors.ErrSendPlayerWin
 	}
-
-	group.State = gru.StateFinish
+	// we have a looser :(
 	return false, errors.ErrSendPlayerLoose
 }
 
@@ -270,6 +302,15 @@ func (g *BlackJack) play() (bool, error) {
 	if groupsCount == 0 {
 		return true, errors.ErrEmptyTable
 	}
+	// check group rotation
+	if g.groupChanged {
+		g.group++
+		if g.group < groupsCount {
+			g.groupChanged = false
+
+			return false, nil
+		}
+	}
 	// check if all groups has been played
 	if groupsCount == g.group {
 		return g.checkHighScore()
@@ -279,7 +320,7 @@ func (g *BlackJack) play() (bool, error) {
 	if group.GetPlayersCount() == 0 {
 		// empty group, remove from the game
 		g.groups = append(g.groups[:g.group], g.groups[g.group+1:]...)
-		g.group++
+		g.groupChanged = true
 
 		return false, nil
 	}
@@ -322,7 +363,7 @@ func (g *BlackJack) play() (bool, error) {
 		return g.checkWinner(group, player, gru.StateFinish)
 
 	case gru.StateFinish:
-		g.group++
+		g.groupChanged = true
 		return false, nil
 	}
 

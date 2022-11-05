@@ -1,6 +1,7 @@
 package saloon
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
@@ -25,7 +26,7 @@ func (s *Saloon) getServerStatusResponse(authenticatedOnly bool) map[string]inte
 	response := make(map[string]interface{})
 	response["server"] = s.cfg.Name
 	response["version"] = s.cfg.Version
-	response["started_at"] = s.cfg.StartedAt
+	response["created_at"] = fmt.Sprintf("%d", s.cfg.CreatedAt.UnixMilli())
 	response["players_count"] = s.players.Size()
 	response["tables_count"] = len(tables)
 	if len(tables) > 0 {
@@ -51,6 +52,13 @@ func (s *Saloon) getGroupID(message *request.WSRequest) int {
 	}
 
 	return int(groupID)
+}
+
+func (s *Saloon) getTableGameStatus(table *table.Table) map[string]interface{} {
+	response := make(map[string]interface{})
+	response["game_status"] = table.GetGameStatus()
+
+	return response
 }
 
 func (s *Saloon) getTableGroupStatus(table *table.Table, groupID int) map[string]interface{} {

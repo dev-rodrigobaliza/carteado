@@ -2,6 +2,7 @@ package table
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/dev-rodrigobaliza/carteado/consts"
@@ -36,7 +37,7 @@ type Table struct {
 }
 
 func New(owner *player.Player, secret string, minPlayers, maxPlayers int, allowBots bool, gameMode gm.Mode) (*Table, error) {
-	game, err := newGame(gameMode)
+	game, err := game.New(gameMode)
 	if err != nil {
 		return nil, err
 	}
@@ -66,20 +67,6 @@ func New(owner *player.Player, secret string, minPlayers, maxPlayers int, allowB
 	table.AddPlayer(owner, secret)
 
 	return table, nil
-}
-
-func newGame(gameMode gm.Mode) (game.IGame, error) {
-	var g game.IGame
-
-	switch gameMode {
-	case gm.ModeBlackJack:
-		g = game.NewBlackJack()
-
-	default:
-		return nil, errors.ErrInvalidEmail
-	}
-
-	return g, nil
 }
 
 func (t *Table) AddPlayer(player *player.Player, secret string) error {
@@ -115,6 +102,9 @@ func (t *Table) AddGroupPlayer(group int, player *player.Player) error {
 	}
 	if t.state != table.StateStart {
 		return errors.ErrGameStart
+	}
+	if player.GroupID == group {
+		return errors.ErrExistsPlayerGroup
 	}
 	// remove from previous group
 	if player.GroupID > 0 {
@@ -188,6 +178,10 @@ func (t *Table) GetAllowBots() bool {
 	return t.allowBots
 }
 
+func (t *Table) GetGameStatus() *response.Game {
+	return t.game.ToResponse()
+}
+
 func (t *Table) GetGroup(groupID int) (*group.Group, error) {
 	// basic validation
 	if groupID == 0 || !t.groups.HasKey(groupID) {
@@ -248,11 +242,29 @@ func (t *Table) Start() error {
 	t.startedAt = time.Now()
 	t.state = table.StatePlay
 
-	// send the news to all players
-	t.sendAllPlayersResponse("start", "game status")
+	// pass only groups with players
+	groups := make([]*group.Group, 0)
+	grs := t.groups.GetAllValues()
+	for _, g := range grs {
+		if g.GetPlayersCount() > 0 {
+			groups = append(groups, g)
+		}
+	}
 
-	// start the game loop
-	go t.loop(playersCount)
+	err := t.game.Start(groups)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		time.Sleep(time.Millisecond * consts.TABLE_INTERVAL_START_GAME_RESPONSE)
+		// send the news to all players
+		t.sendAllPlayersResponse("start", "game status")
+		// send cards to all players
+		t.sendAllPlayersResponse("card", "")
+		// start the game loop
+		t.loop(playersCount)
+	}()
 
 	return nil
 }
@@ -293,40 +305,20 @@ func (t *Table) ToResponse() *response.Table {
 		}
 	}
 
+	game := t.game.ToResponse()
+
 	created := fmt.Sprintf("%d", t.createdAt.UnixMilli())
 	var started string
 	if t.startedAt.After(t.createdAt) {
 		started = fmt.Sprintf("%d", t.startedAt.UnixMilli())
 	}
-	ta := response.NewTable(t.id, t.gameMode.String(), t.createBy, t.startedBy, created, started, t.IsPrivate(), t.players.Size(), spectators, groups, winners)
+	ta := response.NewTable(t.id, t.gameMode.String(), t.createBy, t.startedBy, created, started, t.IsPrivate(), t.players.Size(), spectators, groups, winners, game)
 
 	return ta
 }
 
 func (t *Table) loop(playersCount int) {
-	// pass only groups with players
-	groups := make([]*group.Group, 0)
-	grs := t.groups.GetAllValues()
-	for _, g := range grs {
-		if g.GetPlayersCount() > 0 {
-			groups = append(groups, g)
-		}
-	}
-
-	err := t.game.Start(groups)
-	if err != nil {
-		// TODO (@dev-rodrigobaliza) log this error
-		return
-	}
-
-	// send cards to all players
-	t.sendAllPlayersResponse("cards", "")
-
-	// ask for action to first player
-	p, _ := t.game.GetActivePlayer()
-	g := t.game.GetActiveGroup()
-	t.sendPlayerResponse(p.UUID, "action", "", g)
-
+	// init the main loop ticker
 	ticker := time.NewTicker(time.Millisecond * consts.TABLE_INTERVAL_LOOP)
 
 loop:
@@ -343,11 +335,11 @@ loop:
 				g := t.game.GetActiveGroup()
 
 				switch err {
-				case errors.ErrSendPlayerCards:
+				case errors.ErrSendPlayerAction:
 					t.sendPlayerResponse(p.UUID, "action", "", g)
 
 				case errors.ErrSendPlayerCards:
-					t.sendPlayerResponse(p.UUID, "cards", "", g)
+					t.sendPlayerResponse(p.UUID, "card", "", g)
 
 				case errors.ErrSendPlayerLoose:
 					t.sendPlayerResponse(p.UUID, "loose", "", g)
@@ -368,16 +360,11 @@ loop:
 
 	ticker.Stop()
 	t.state = table.StateFinish
+	t.sendAllPlayersResponse("", "")
 
-	if err == nil {
-		t.sendAllPlayersResponse("", "")
-	} else {
-		// TODO (@dev-rodrigobaliza) log this error
-	}
-
-	err = t.game.Stop()
+	err := t.game.Stop()
 	if err != nil {
-		// TODO (@dev-rodrigobaliza) log this error
+		log.Printf("error stopping game: %s", err.Error())
 	}
 }
 
@@ -417,7 +404,7 @@ func (t *Table) sendPlayerResponse(playerID, status, message string, group *grou
 	case "action":
 		message = "waiting for player action"
 
-	case "cards":
+	case "card":
 		message = "player cards"
 
 	case "start":

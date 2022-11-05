@@ -172,20 +172,30 @@ func (s *Saloon) resourceTableGame(player *player.Player, message *request.WSReq
 		s.sendResponseError(player, message, "table id invalid", nil)
 		return
 	}
-
+	// create response
+	var response map[string]interface{}
 	switch action {
 	case "continue":
 		player.Action = action
 
+	case "status":
+		response = s.getTableGameStatus(table)
+
 	case "start":
-		s.actionTableGameStart(player, message, table)
+		response = s.actionTableGameStart(player, message, table)
 
 	case "stop":
-		s.actionTableGameStop(player, message, table)
+		response = s.actionTableGameStop(player, message, table)
 
 	default:
 		s.sendResponseError(player, message, "action invalid", nil)
 		return
+	}
+	// send response
+	if response != nil {
+		s.sendResponseSuccess(player, message, fmt.Sprintf("%s table game", action), response)
+		// debug log
+		s.debug("=== table group %s %v", action, response)
 	}
 }
 
@@ -197,13 +207,13 @@ func (s *Saloon) resourceTableGroup(player *player.Player, message *request.WSRe
 		return
 	}
 	groupID := s.getGroupID(message)
-	if groupID == 0 {
-		s.sendResponseError(player, message, "group id invalid", nil)
-		return
-	}
 	action := s.getAction(message)
 	if action == "" {
 		s.sendResponseError(player, message, "action invalid", nil)
+		return
+	}
+	if groupID == 0 && action != "enter" {
+		s.sendResponseError(player, message, "group id invalid", nil)
 		return
 	}
 	// database validation
@@ -218,23 +228,14 @@ func (s *Saloon) resourceTableGroup(player *player.Player, message *request.WSRe
 		s.sendResponseError(player, message, "group id invalid", nil)
 		return
 	}
+	// create response
 	var response map[string]interface{}
 	switch action {
 	case "enter":
-		err = table.AddGroupPlayer(groupID, player)
-		if err != nil || table == nil {
-			s.sendResponseError(player, message, "enter group failed", nil)
-			return
-		}
-		response = s.getTableStatus(table)
+		response = s.actionTableGroupEnter(player, message, table, groupID)
 
 	case "leave":
-		err = table.DelGroupPlayer(groupID, player.UUID)
-		if err != nil || table == nil {
-			s.sendResponseError(player, message, "leave group failed", nil)
-			return
-		}
-		response = s.getTableStatus(table)
+		response = s.actionTableGroupLeave(player, message, table, groupID)
 
 	case "status":
 		response = s.getTableGroupStatus(table, groupID)
@@ -244,9 +245,11 @@ func (s *Saloon) resourceTableGroup(player *player.Player, message *request.WSRe
 		return
 	}
 	// send response
-	s.sendResponseSuccess(player, message, fmt.Sprintf("%s table group", action), response)
-	// debug log
-	s.debug("=== table group %s %v", action, response)
+	if response != nil {
+		s.sendResponseSuccess(player, message, fmt.Sprintf("%s table group", action), response)
+		// debug log
+		s.debug("=== table group %s %v", action, response)
+	}
 }
 
 func (s *Saloon) resourceTableLeave(player *player.Player, message *request.WSRequest, tableID string) {
