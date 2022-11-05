@@ -14,7 +14,7 @@ func NewCard(card string, value int) *Card {
 
 type Deck struct {
 	TableID string  `json:"table_id"`
-	Cards   []*Card `json:"cards"`
+	Cards   []*Card `json:"cards,omitempty"`
 }
 
 func NewDeck(tableID string, cards []*Card) *Deck {

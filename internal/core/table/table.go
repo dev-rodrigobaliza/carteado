@@ -114,7 +114,7 @@ func (t *Table) AddGroupPlayer(group int, player *player.Player) error {
 		return errors.ErrNotFoundPlayer
 	}
 	if t.state != table.StateStart {
-		return errors.ErrStartedGame
+		return errors.ErrGameStart
 	}
 	// remove from previous group
 	if player.GroupID > 0 {
@@ -240,7 +240,7 @@ func (t *Table) Start() error {
 		return errors.ErrNotEnoughPlayers
 	}
 	if t.state != table.StateStart {
-		return errors.ErrStartedGame
+		return errors.ErrGameStart
 	}
 	// TODO (@dev-rodrigobaliza) more game conditions to start ???
 	// TODO (@dev-rodrigobaliza) set players order
@@ -249,21 +249,23 @@ func (t *Table) Start() error {
 	t.state = table.StatePlay
 
 	// send the news to all players
-	response := make(map[string]interface{})
-	response["table_game"] = "game started"
-	t.sendAllPlayersResponse("info", "game status", response)
+	t.sendAllPlayersResponse("start", "game status")
 
 	// start the game loop
 	go t.loop(playersCount)
-	
+
 	return nil
 }
 
-func (t *Table) Stop(force bool) {
+func (t *Table) Stop(force bool) error {
 	// TODO (@dev-rodrigobaliza) mayde do a little housekeeping here
 	if t.state == table.StatePlay {
 		t.done <- true
+
+		return nil
 	}
+
+	return errors.ErrGameStop
 }
 
 func (t *Table) ToResponse() *response.Table {
@@ -318,11 +320,12 @@ func (t *Table) loop(playersCount int) {
 	}
 
 	// send cards to all players
-	for _, g := range grs {
-		for _, p := range g.GetPlayers() {
-			t.sendPlayerResponse(p, "cards", g)
-		}
-	}
+	t.sendAllPlayersResponse("cards", "")
+
+	// ask for action to first player
+	p, _ := t.game.GetActivePlayer()
+	g := t.game.GetActiveGroup()
+	t.sendPlayerResponse(p.UUID, "action", "", g)
 
 	ticker := time.NewTicker(time.Millisecond * consts.TABLE_INTERVAL_LOOP)
 
@@ -341,13 +344,16 @@ loop:
 
 				switch err {
 				case errors.ErrSendPlayerCards:
-					t.sendPlayerResponse(p.UUID, "cards", g)
+					t.sendPlayerResponse(p.UUID, "action", "", g)
+
+				case errors.ErrSendPlayerCards:
+					t.sendPlayerResponse(p.UUID, "cards", "", g)
 
 				case errors.ErrSendPlayerLoose:
-					t.sendPlayerResponse(p.UUID, "loose", g)
+					t.sendPlayerResponse(p.UUID, "loose", "", g)
 
 				case errors.ErrSendPlayerWin:
-					t.sendPlayerResponse(p.UUID, "win", g)
+					t.sendPlayerResponse(p.UUID, "win", "", g)
 				}
 			}
 
@@ -364,15 +370,9 @@ loop:
 	t.state = table.StateFinish
 
 	if err == nil {
-		grs := t.groups.GetAllValues()
-		for _, g := range grs {
-			p, err := g.GetNextPlayer()
-			if err != nil {
-				continue
-			}
-
-			t.sendPlayerResponse(p.UUID, p.Action, g)
-		}
+		t.sendAllPlayersResponse("", "")
+	} else {
+		// TODO (@dev-rodrigobaliza) log this error
 	}
 
 	err = t.game.Stop()
@@ -381,54 +381,61 @@ loop:
 	}
 }
 
-func (t *Table) sendAllPlayersResponse(status, message string, response map[string]interface{}) {
+func (t *Table) sendAllPlayersResponse(status, message string) {
+	grs := t.groups.GetAllValues()
+	for _, g := range grs {
+		p, err := g.GetNextPlayer()
+		if err != nil {
+			continue
+		}
 
+		if status != "" {
+			p.Action = status
+		}
+
+		t.sendPlayerResponse(p.UUID, p.Action, message, g)
+	}
 }
 
-func (t *Table) sendPlayerResponse(playerID, status string, group *group.Group) {
+func (t *Table) sendPlayerResponse(playerID, status, message string, group *group.Group) {
+	response := make(map[string]interface{})
+
 	pl, err := t.players.GetOneValue(playerID, false)
 	if err != nil {
 		// TODO (@dev-rodrigobaliza) log this error
 		return
 	}
 
-	var message string
-	response := make(map[string]interface{})
+	d, err := group.GetPlayerDeck(playerID)
+	if err != nil {
+		// TODO (@dev-rodrigobaliza) how do we handle this error?
+		return
+	}
+	response["table"] = d.ToResponse(t.id, true)
 
 	switch status {
-	case "cards":
-		d, err := group.GetPlayerDeck(playerID)
-		if err != nil {
-			// TODO (@dev-rodrigobaliza) how do we handle this error?
-			return
-		}
+	case "action":
+		message = "waiting for player action"
 
-		response["table"] = d.ToResponse(t.id, true)
+	case "cards":
 		message = "player cards"
 
-	case "loose", "win":
-		s := table.Status{
-			ID:     t.id,
-			Status: status,
-		}
+	case "start":
+		response["status"] = "game started"
 
-		response["table"] = s
-		message = "game status"
+	case "loose", "win":
+		if t.state == table.StateFinish {
+			message = "game over"
+			// TODO (@dev-rodrigobaliza) inform the winner for all
+		} else {
+			message = "game status"
+		}
+		response["status"] = status
 
 	default:
 		return
 	}
 
-	if t.state == table.StateFinish {
-		response["table_game"] = "game over"
-	}
-
 	// send response
 	pl.SendResponse(nil, "info", message, response)
-
-	// if status == "cards" {
-	// 	response = make(map[string]interface{})
-	// 	response["table"] = "waiting for player action"
-	// 	pl.SendResponse(nil, "info", "game status", response)
-	// }
 }

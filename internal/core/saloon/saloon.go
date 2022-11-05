@@ -77,6 +77,7 @@ func (s *Saloon) ProcessPlayerMessage(player *player.Player, message request.WSR
 }
 
 func (s *Saloon) Start() {
+	log.Printf("*** saloon is opened")
 	go s.processMessages()
 
 	for {
@@ -108,6 +109,8 @@ func (s *Saloon) Stop() {
 	close(s.addChan)
 	close(s.delChan)
 	close(s.doneChan)
+
+	log.Printf("*** saloon is closed")
 }
 
 func (s *Saloon) addTable(table *table.Table) {

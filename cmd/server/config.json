@@ -24,11 +24,7 @@
             "enabled": true,
             "max_requests": 10,
             "expiration": "10s",
-            "allowed_ips": [
-                "127.0.0.1",
-                "localhost",
-                "::1"
-            ]
+            "allowed_ips": []
         }
     },
     "security": {

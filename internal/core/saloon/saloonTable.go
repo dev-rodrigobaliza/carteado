@@ -71,7 +71,7 @@ func (s *Saloon) resourceTableCreate(player *player.Player, message *request.WSR
 	// make response
 	response := s.getTableStatus(table)
 	// send response
-	s.sendResponseSuccess(player, message, "table created", response)
+	s.sendResponseSuccess(player, message, "table create", response)
 	// debug log
 	s.debug("=== table create %v", response)
 }
@@ -106,7 +106,7 @@ func (s *Saloon) resourceTableDelete(player *player.Player, message *request.WSR
 	response := make(map[string]interface{})
 	response["table_id"] = player.TableID
 	// send response
-	s.sendResponseSuccess(player, message, "table removed", response)
+	s.sendResponseSuccess(player, message, "table remove", response)
 	// debug log
 	s.debug("=== table remove %v", response)
 }
@@ -172,7 +172,21 @@ func (s *Saloon) resourceTableGame(player *player.Player, message *request.WSReq
 		s.sendResponseError(player, message, "table id invalid", nil)
 		return
 	}
-	player.Action = action
+
+	switch action {
+	case "continue":
+		player.Action = action
+
+	case "start":
+		s.actionTableGameStart(player, message, table)
+
+	case "stop":
+		s.actionTableGameStop(player, message, table)
+
+	default:
+		s.sendResponseError(player, message, "action invalid", nil)
+		return
+	}
 }
 
 func (s *Saloon) resourceTableGroup(player *player.Player, message *request.WSRequest) {
@@ -303,41 +317,6 @@ func (s *Saloon) resourceTableRemoveForced(table *table.Table, force bool, err e
 	}
 }
 
-func (s *Saloon) resourceTableStart(player *player.Player, message *request.WSRequest) {
-	// input validation
-	tableID := s.getTableID(message)
-	if tableID == "" {
-		s.sendResponseError(player, message, "table id invalid, nil", nil)
-		return
-	}
-	// database validation
-	// TODO (@dev-rodrigobaliza) database validation ???
-	// table validation
-	table, err := s.getTable(tableID)
-	if err != nil || table == nil {
-		s.sendResponseError(player, message, "table id invalid", nil)
-		return
-	}
-	// onwnership validation
-	if !player.User.IsAdmin && table.GetOwner() != player.UUID && table.GetOwner() != "" {
-		s.sendResponseError(player, message, "table id not owned by player", nil)
-		return
-	}
-	// start table
-	err = table.Start()
-	if err != nil {
-		s.sendResponseError(player, message, "table not started", err)
-		return
-	}
-	// make response
-	response := make(map[string]interface{})
-	response["game_id"] = player.TableID
-	// send response
-	s.sendResponseSuccess(player, message, "table started", response)
-	// debug log
-	s.debug("=== table start %v", response)
-}
-
 func (s *Saloon) resourceTableStatus(player *player.Player, message *request.WSRequest) {
 	// input validation
 	tableID := s.getTableID(message)
@@ -379,9 +358,6 @@ func (s *Saloon) serviceTable(player *player.Player, message *request.WSRequest)
 
 	case "remove":
 		s.resourceTableDelete(player, message)
-
-	case "start":
-		s.resourceTableStart(player, message)
 
 	case "status":
 		s.resourceTableStatus(player, message)

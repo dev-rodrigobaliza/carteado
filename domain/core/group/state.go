@@ -3,13 +3,16 @@ package group
 type State int8
 
 func (s State) String() string {
-	return [...]string{"unknown", "ready", "action", "stop", "bet", "finish"}[s]
+	return [...]string{"unknown", "ready", "card", "action", "stop", "bet", "finish"}[s]
 }
 
 func StringToState(groupState string) State {
 	switch groupState {
 	case "ready":
 		return StateReady
+
+	case "card":
+		return StateCard
 
 	case "action":
 		return StateAction
@@ -31,6 +34,7 @@ func StringToState(groupState string) State {
 const (
 	StateUnknown State = iota
 	StateReady
+	StateCard
 	StateAction
 	StateStop
 	StateBet

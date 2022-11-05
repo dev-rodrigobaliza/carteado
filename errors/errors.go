@@ -44,11 +44,13 @@ var (
 
 	ErrNotImplemented = errors.New("not implemented")
 
-	ErrSendPlayerCards      = errors.New("send player cards")
-	ErrSendPlayerLoose      = errors.New("send player loose")
-	ErrSendPlayerWin        = errors.New("send player win")
+	ErrSendPlayerAction = errors.New("send player request action")
+	ErrSendPlayerCards  = errors.New("send player cards")
+	ErrSendPlayerLoose  = errors.New("send player loose")
+	ErrSendPlayerWin    = errors.New("send player win")
 
-	ErrStartedGame = errors.New("game already started")
+	ErrGameStart = errors.New("game already started")
+	ErrGameStop  = errors.New("game not started")
 
 	ErrUnauthorized = errors.New("unauthorized")
 )

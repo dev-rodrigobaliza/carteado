@@ -292,7 +292,11 @@ func (g *BlackJack) play() (bool, error) {
 	switch group.State {
 	case gru.StateReady:
 		g.giveCard(group)
+		return g.checkWinner(group, player, gru.StateCard)
+
+	case gru.StateCard:
 		group.State = gru.StateAction
+		player.Action = "card"
 		return false, errors.ErrSendPlayerCards
 
 	case gru.StateAction:
@@ -302,6 +306,10 @@ func (g *BlackJack) play() (bool, error) {
 
 		case "stop":
 			return g.checkWinner(group, player, gru.StateFinish)
+
+		case "card":
+			player.Action = ""
+			return false, errors.ErrSendPlayerAction // send request action to player
 
 		case "":
 			return false, nil
