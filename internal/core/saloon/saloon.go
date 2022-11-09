@@ -55,24 +55,24 @@ func (s *Saloon) NewPlayer(conn *websocket.Conn) {
 	p.Listen()
 }
 
-func (s *Saloon) ProcessPlayerMessage(player *player.Player, message request.WSRequest) {
-	if message.Service == "auth" {
-		s.serviceAuth(player, &message)
+func (s *Saloon) ProcessPlayerMessage(pl *player.Player, req request.WSRequest) {
+	if req.Service == "auth" {
+		s.serviceAuth(pl, &req)
 		return
 	}
-	if player.User == nil {
-		s.sendResponseError(player, &message, "player unauthenticated", nil)
+	if pl.User == nil {
+		s.sendResponseError(pl, &req, "player unauthenticated", nil)
 		return
 	}
-	switch message.Service {
+	switch req.Service {
 	case "admin":
-		s.serviceAdmin(player, &message)
+		s.serviceAdmin(pl, &req)
 
 	case "table":
-		s.serviceTable(player, &message)
+		s.serviceTable(pl, &req)
 
 	default:
-		s.sendResponseError(player, &message, "service not found", nil)
+		s.sendResponseError(pl, &req, "service not found", nil)
 	}
 }
 
@@ -134,14 +134,14 @@ func (s *Saloon) processMessages() {
 	for {
 		message := <-s.boardChan
 
-		var wsMessage request.WSRequest
-		err := wsMessage.FromBytes(message.Data)
+		var req request.WSRequest
+		err := req.FromBytes(message.Data)
 		if err != nil {
 			log.Printf("!!! message from [%s] - error parsing player websocket [%s]", message.Player, message.Data)
 			s.sendResponseError(message.Player, nil, "invalid message", err)
 		} else {
 			s.debug("--- message from [%s] - [%s]", message.Player, utils.CompactJson(message.Data))
-			s.ProcessPlayerMessage(message.Player, wsMessage)
+			s.ProcessPlayerMessage(message.Player, req)
 		}
 	}
 }

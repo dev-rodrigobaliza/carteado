@@ -6,7 +6,7 @@ var (
 	ErrEmptyDeck  = errors.New("deck is empty")
 	ErrEmptyTable = errors.New("table is empty")
 
-	ErrExistsPlayer = errors.New("player already exists")
+	ErrExistsPlayer      = errors.New("player already exists")
 	ErrExistsPlayerGroup = errors.New("player already in the group")
 
 	ErrFailedOpenFileConfig  = errors.New("failed to open config file")
@@ -35,13 +35,16 @@ var (
 	ErrMaxPlayers = errors.New("players count over maximum")
 	ErrMinPlayers = errors.New("players count above minimum")
 
+	ErrNotAllowedBotPlayers = errors.New("bot players not allowed")
+
 	ErrNotEnoughPlayers = errors.New("players not enough")
 
-	ErrNotFoundCard   = errors.New("card not found")
-	ErrNotFoundDeck   = errors.New("deck not found")
-	ErrNotFoundGroup  = errors.New("group not found")
-	ErrNotFoundPlayer = errors.New("player not found")
-	ErrNotFoundUser   = errors.New("user not found")
+	ErrNotFoundAvailableGroup = errors.New("available group not found")
+	ErrNotFoundCard           = errors.New("card not found")
+	ErrNotFoundDeck           = errors.New("deck not found")
+	ErrNotFoundGroup          = errors.New("group not found")
+	ErrNotFoundPlayer         = errors.New("player not found")
+	ErrNotFoundUser           = errors.New("user not found")
 
 	ErrNotImplemented = errors.New("not implemented")
 

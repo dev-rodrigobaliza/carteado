@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/dev-rodrigobaliza/carteado/consts"
@@ -141,6 +142,7 @@ func (g *BlackJack) Stop() error {
 		return errors.ErrInvalidGameState
 	}
 	// TODO (@dev-rodrigobaliza) finish here all the loose ends
+	g.state = game.StateWaiting
 
 	return nil
 }
@@ -166,16 +168,44 @@ func (g *BlackJack) bet() (bool, error) {
 	return false, errors.ErrNotImplemented
 }
 
+func (g *BlackJack) checkCard(group *group.Group, player *player.Player) (bool, error) {
+	player.Action = ""
+	if !player.IsBot {
+		return false, errors.ErrSendPlayerAction // send request action to player
+	}
+	// count cards
+	score := group.GetGroupScore()
+	luke := rand.Intn(10)
+	if score < 15 {
+		if luke < 9 {
+			player.Action = "continue"
+		} else {
+			player.Action = "discontinue"
+		}
+	} else if score > 20 {
+		return g.checkWinner(group, player, gru.StateFinish)
+	} else {
+		if luke < (consts.GAME_BLACKJACK_WINNING_SCORE - score) {
+			player.Action = "continue"
+		} else {
+			player.Action = "discontinue"
+		}
+	}
+
+	return false, nil
+}
+
 func (g *BlackJack) checkHighScore() (bool, error) {
 	highPlayers := make([]string, 0)
 	highScore := 0
 
 	for _, group := range g.groups {
 		if group.GetPlayersCount() > 0 {
-			if group.GetGroupScore() > highScore {
-				highScore = group.GetGroupScore()
+			score := group.GetGroupScore()
+			if score > highScore && score <= consts.GAME_BLACKJACK_WINNING_SCORE {
+				highScore = score
 				highPlayers = append(make([]string, 0), group.GetPlayers()[0])
-			} else if group.GetGroupScore() == highScore {
+			} else if score == highScore {
 				highPlayers = append(highPlayers, group.GetPlayers()[0])
 			}
 		}
@@ -212,9 +242,9 @@ func (g *BlackJack) checkWinner(group *group.Group, player *player.Player, state
 	// clear player action
 	player.Action = ""
 	// get player score
-	points := group.GetGroupScore()
+	score := group.GetGroupScore()
 	// check game rules
-	if points < consts.GAME_BLACKJACK_WINNING_SCORE {
+	if score < consts.GAME_BLACKJACK_WINNING_SCORE {
 		// can keep playing
 		group.State = state
 
@@ -222,7 +252,7 @@ func (g *BlackJack) checkWinner(group *group.Group, player *player.Player, state
 	}
 	// game over for this player
 	group.State = gru.StateFinish
-	if points == consts.GAME_BLACKJACK_WINNING_SCORE {
+	if score == consts.GAME_BLACKJACK_WINNING_SCORE {
 		// we have a winner :)
 		return true, errors.ErrSendPlayerWin
 	}
@@ -345,12 +375,11 @@ func (g *BlackJack) play() (bool, error) {
 		case "continue":
 			return g.checkWinner(group, player, gru.StateReady)
 
-		case "stop":
+		case "discontinue":
 			return g.checkWinner(group, player, gru.StateFinish)
 
 		case "card":
-			player.Action = ""
-			return false, errors.ErrSendPlayerAction // send request action to player
+			return g.checkCard(group, player)
 
 		case "":
 			return false, nil

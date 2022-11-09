@@ -22,6 +22,7 @@ type Player struct {
 	boardChan chan pl.Message[*Player]
 	delChan   chan *Player
 	// mounted after user login
+	IsBot     bool
 	User      *response.User
 	createdAt time.Time
 	loggedAt  time.Time
@@ -40,6 +41,19 @@ func New(conn *websocket.Conn, boardChan chan pl.Message[*Player], delChan chan 
 		send:      make(chan []byte, consts.PLAYER_MESSAGE_STACK_SIZE),
 		boardChan: boardChan,
 		delChan:   delChan,
+		IsBot:     false,
+		createdAt: time.Now(),
+	}
+
+	go player.write()
+
+	return player
+}
+
+func NewBot() *Player {
+	player := &Player{
+		UUID:      utils.NewUUID(consts.PLAYER_PREFIX_ID),
+		IsBot:     true,
 		createdAt: time.Now(),
 	}
 
@@ -104,17 +118,26 @@ func (p *Player) String() string {
 	return p.Addr
 }
 
-func (p *Player) ToResponse(full bool) *response.Player {
+func (p *Player) ToResponse(full, admin bool) *response.Player {
+	var address string
 	var name string
 	var tableID string
 	var logged string
 
-	if p.User == nil {
-		name = "# unauthenticated #"
+	if p.IsBot {
+		name = "bot [" + p.UUID + "]"
 	} else {
-		name = p.User.Name
-		logged = fmt.Sprintf("%d", p.loggedAt.UnixMilli())
+		if admin {
+			address = p.conn.LocalAddr().String()
+		}
+		if p.User == nil {
+			name = "# unauthenticated #"
+		} else {
+			name = p.User.Name
+			logged = fmt.Sprintf("%d", p.loggedAt.UnixMilli())
+		}
 	}
+
 	if full {
 		tableID = p.TableID
 	}
@@ -123,8 +146,8 @@ func (p *Player) ToResponse(full bool) *response.Player {
 	if groupID == "0" {
 		groupID = ""
 	}
-	
-	player := response.NewPlayer(p.UUID, name, tableID, groupID, created, logged)
+
+	player := response.NewPlayer(p.UUID, address, name, tableID, groupID, created, logged, p.IsBot)
 
 	return player
 }

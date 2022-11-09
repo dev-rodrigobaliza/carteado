@@ -1,7 +1,7 @@
 # backend
 /bin
-/cmd/api/config.json
-/cmd/api/__debug_bin
+/cmd/server/config.json
+/cmd/server/__debug_bin
 
 # frontend
 logs

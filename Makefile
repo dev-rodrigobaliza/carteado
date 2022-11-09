@@ -6,8 +6,8 @@ date=$(shell date "+(%d/%m/%Y)")
 frontend:
 	cd frontend && npm run build && cp -r dist ../cmd/server
 
-build-win:
-	go build -o bin/carteado.exe -ldflags "-s -w -X 'main.appVersion=${version}' -X 'main.appDate=${date}'" cmd/server/main.go
+build:
+	go build -o bin/carteado -ldflags "-s -w -X 'main.appVersion=${version}' -X 'main.appDate=${date}'" cmd/server/main.go
 
 all: frontend build-win
 	@echo "all is done now!"

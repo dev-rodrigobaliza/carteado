@@ -6,21 +6,21 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/utils"
 )
 
-func (s *Saloon) resourceAuthLogin(player *player.Player, message *request.WSRequest) {
-	token, ok := message.Data["token"].(string)
+func (s *Saloon) resourceAuthLogin(pl *player.Player, req *request.WSRequest) {
+	token, ok := req.Data["token"].(string)
 	if !ok {
-		s.sendResponseError(player, message, "token invalid", nil)
+		s.sendResponseError(pl, req, "token invalid", nil)
 	}
 	// token validation
 	id, err := Security.VerifyToken(token)
 	if err != nil {
-		s.sendResponseError(player, message, "token invalid", err)
+		s.sendResponseError(pl, req, "token invalid", err)
 		return
 	}
 	// database validation
 	err = s.appService.AuthService.VerifyToken(id, token)
 	if err != nil {
-		s.sendResponseError(player, message, "token invalid", err)
+		s.sendResponseError(pl, req, "token invalid", err)
 		return
 	}
 	// get user from database
@@ -30,31 +30,31 @@ func (s *Saloon) resourceAuthLogin(player *player.Player, message *request.WSReq
 	}
 	user, _, err := s.appService.UserService.Get(u)
 	if err != nil || user == nil {
-		s.sendResponseError(player, message, "user not found", err)
+		s.sendResponseError(pl, req, "user not found", err)
 		return
 	}
 	// set player-user information
-	firstLogin := player.Login(user)
-	s.loginPlayer(player)
+	firstLogin := pl.Login(user)
+	s.loginPlayer(pl)
 	// make response
 	response := make(map[string]interface{})
 	response["first_login"] = firstLogin
-	response["player"] = player.ToResponse(true)
+	response["player"] = pl.ToResponse(true, pl.User.IsAdmin)
 	// send response
-	s.sendResponseSuccess(player, message, player.Greeting(), response)
-	if player.User.IsAdmin {
-		player.SendResponse(nil, "info", "server status", s.getServerStatusResponse(false))
+	s.sendResponseSuccess(pl, req, pl.Greeting(), response)
+	if pl.User.IsAdmin {
+		pl.SendResponse(nil, "info", "server status", s.getServerStatusResponse(false))
 	}
 	// debug log
 	s.debug("=== auth login %v", response)
 }
 
-func (s *Saloon) serviceAuth(player *player.Player, message *request.WSRequest) {
-	switch message.Resource {
+func (s *Saloon) serviceAuth(pl *player.Player, req *request.WSRequest) {
+	switch req.Resource {
 	case "login":
-		s.resourceAuthLogin(player, message)
+		s.resourceAuthLogin(pl, req)
 
 	default:
-		s.sendResponseError(player, message, "auth resource not found", nil)
+		s.sendResponseError(pl, req, "auth resource not found", nil)
 	}
 }

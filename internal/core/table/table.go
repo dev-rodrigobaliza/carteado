@@ -69,29 +69,6 @@ func New(owner *player.Player, secret string, minPlayers, maxPlayers int, allowB
 	return table, nil
 }
 
-func (t *Table) AddPlayer(player *player.Player, secret string) error {
-	// basic validation
-	if player == nil {
-		return errors.ErrNotFoundPlayer
-	}
-	if !t.CheckSecret(secret) {
-		return errors.ErrInvalidPassword
-	}
-	// table validation
-	if t.HasPlayer(player.UUID) {
-		return errors.ErrExistsPlayer
-	}
-
-	if t.players.Size() >= t.maxPlayers {
-		return errors.ErrMaxPlayers
-	}
-	// add player
-	t.players.Insert(player.UUID, player)
-	player.TableID = t.id
-
-	return nil
-}
-
 func (t *Table) AddGroupPlayer(group int, player *player.Player) error {
 	// basic validation
 	if group == 0 || !t.groups.HasKey(group) {
@@ -118,6 +95,71 @@ func (t *Table) AddGroupPlayer(group int, player *player.Player) error {
 	// add player to group
 	g, _ := t.groups.GetOneValue(group, false)
 	return g.AddPlayer(player)
+}
+
+func (t *Table) AddGroupPlayerBot(player *player.Player) error {
+	// basic validation
+	if player == nil {
+		return errors.ErrNotFoundPlayer
+	}
+	if t.state != table.StateStart {
+		return errors.ErrGameStart
+	}
+	// find next group available
+	grs := t.groups.GetAllValues()
+	for _, g := range grs {
+		if g.GetPlayersCount() == 0 {
+			// add player to group
+			return g.AddPlayer(player)
+		}
+	}
+
+	return errors.ErrNotFoundAvailableGroup
+}
+
+func (t *Table) AddPlayer(player *player.Player, secret string) error {
+	// basic validation
+	if player == nil {
+		return errors.ErrNotFoundPlayer
+	}
+	if !t.CheckSecret(secret) {
+		return errors.ErrInvalidPassword
+	}
+	// table validation
+	if t.HasPlayer(player.UUID) {
+		return errors.ErrExistsPlayer
+	}
+
+	if t.GetGroupPlayersCount() >= t.maxPlayers {
+		return errors.ErrMaxPlayers
+	}
+	// add player
+	t.players.Insert(player.UUID, player)
+	player.TableID = t.id
+
+	return nil
+}
+
+func (t *Table) AddPlayerBot(player *player.Player) error {
+	// basic validation
+	if player == nil {
+		return errors.ErrNotFoundPlayer
+	}
+	// table validation
+	if !t.allowBots {
+		return errors.ErrNotAllowedBotPlayers
+	}
+	if t.HasPlayer(player.UUID) {
+		return errors.ErrExistsPlayer
+	}
+	if t.GetGroupPlayersCount() >= t.maxPlayers {
+		return errors.ErrMaxPlayers
+	}
+	// add player
+	t.players.Insert(player.UUID, player)
+	player.TableID = t.id
+
+	return t.AddGroupPlayerBot(player)
 }
 
 func (t *Table) CheckSecret(secret string) bool {
@@ -167,7 +209,7 @@ func (t *Table) DelPlayer(player string) error {
 	if t.players.IsEmpty() {
 		return errors.ErrEmptyTable
 	}
-	if t.state != table.StateStart && t.players.Size() < t.minPlayers {
+	if t.state != table.StateStart && t.GetGroupPlayersCount() < t.minPlayers {
 		return errors.ErrMinPlayers
 	}
 
@@ -192,6 +234,17 @@ func (t *Table) GetGroup(groupID int) (*group.Group, error) {
 	return group, nil
 }
 
+func (t *Table) GetGroupPlayersCount() int {
+	var total int
+
+	grs := t.groups.GetAllValues()
+	for _, g := range grs {
+		total += g.GetPlayersCount()
+	}
+
+	return total
+}
+
 func (t *Table) GetID() string {
 	return t.id
 }
@@ -212,10 +265,6 @@ func (t *Table) GetPlayers() []string {
 	return t.players.GetAllKeys()
 }
 
-func (t *Table) GetPlayersCount() int {
-	return t.players.Size()
-}
-
 func (t *Table) HasGroup(groupID int) bool {
 	return t.groups.HasKey(groupID)
 }
@@ -229,7 +278,7 @@ func (t *Table) IsPrivate() bool {
 }
 
 func (t *Table) Start() error {
-	playersCount := t.players.Size()
+	playersCount := t.GetGroupPlayersCount()
 	if playersCount < t.minPlayers {
 		return errors.ErrNotEnoughPlayers
 	}
@@ -280,12 +329,12 @@ func (t *Table) Stop(force bool) error {
 	return errors.ErrGameStop
 }
 
-func (t *Table) ToResponse() *response.Table {
+func (t *Table) ToResponse(admin bool) *response.Table {
 	spectators := make([]*response.Player, 0)
 	players := t.players.GetAllValues()
 	for _, player := range players {
 		if player.GroupID == 0 {
-			spectators = append(spectators, player.ToResponse(false))
+			spectators = append(spectators, player.ToResponse(false, admin))
 		}
 	}
 
@@ -293,7 +342,7 @@ func (t *Table) ToResponse() *response.Table {
 	grs := t.groups.GetAllValues()
 	for _, group := range grs {
 		if group.GetPlayersCount() > 0 {
-			groups = append(groups, group.ToResponse(false))
+			groups = append(groups, group.ToResponse(false, admin))
 		}
 	}
 
@@ -301,7 +350,7 @@ func (t *Table) ToResponse() *response.Table {
 	for _, w := range t.winners {
 		winner, err := t.groups.GetOneValue(w, false)
 		if err == nil {
-			winners = append(winners, winner.ToResponse(false))
+			winners = append(winners, winner.ToResponse(false, admin))
 		}
 	}
 
@@ -312,7 +361,7 @@ func (t *Table) ToResponse() *response.Table {
 	if t.startedAt.After(t.createdAt) {
 		started = fmt.Sprintf("%d", t.startedAt.UnixMilli())
 	}
-	ta := response.NewTable(t.id, t.gameMode.String(), t.createBy, t.startedBy, created, started, t.IsPrivate(), t.players.Size(), spectators, groups, winners, game)
+	ta := response.NewTable(t.id, t.gameMode.String(), t.createBy, t.startedBy, created, started, t.IsPrivate(), t.GetGroupPlayersCount(), spectators, groups, winners, game)
 
 	return ta
 }
@@ -360,7 +409,7 @@ loop:
 
 	ticker.Stop()
 	t.state = table.StateFinish
-	t.sendAllPlayersResponse("", "")
+	t.sendAllPlayersResponse("stop", "")
 
 	err := t.game.Stop()
 	if err != nil {
@@ -369,6 +418,24 @@ loop:
 }
 
 func (t *Table) sendAllPlayersResponse(status, message string) {
+	// message for all players, inclusive spectators
+	if status == "start" || status == "stop" {
+		// TODO (@dev-rodrigobaliza) inform the winner for all if stop and hasWinner
+		pls := t.players.GetAllValues()
+		for _, p := range pls {
+			if p.IsBot {
+				continue
+			}
+			if p.GroupID > 0 {
+				p.Action = status
+			}
+
+			t.sendPlayerResponse(p.UUID, p.Action, message, nil)
+		}
+
+		return
+	}
+	// message only for players in game
 	grs := t.groups.GetAllValues()
 	for _, g := range grs {
 		p, err := g.GetNextPlayer()
@@ -380,6 +447,10 @@ func (t *Table) sendAllPlayersResponse(status, message string) {
 			p.Action = status
 		}
 
+		if p.IsBot {
+			continue
+		}
+
 		t.sendPlayerResponse(p.UUID, p.Action, message, g)
 	}
 }
@@ -387,18 +458,20 @@ func (t *Table) sendAllPlayersResponse(status, message string) {
 func (t *Table) sendPlayerResponse(playerID, status, message string, group *group.Group) {
 	response := make(map[string]interface{})
 
-	pl, err := t.players.GetOneValue(playerID, false)
-	if err != nil {
+	p, err := t.players.GetOneValue(playerID, false)
+	if err != nil || p.IsBot {
 		// TODO (@dev-rodrigobaliza) log this error
 		return
 	}
 
-	d, err := group.GetPlayerDeck(playerID)
-	if err != nil {
-		// TODO (@dev-rodrigobaliza) how do we handle this error?
-		return
+	if p.GroupID > 0 {
+		d, err := group.GetPlayerDeck(playerID)
+		if err != nil {
+			// TODO (@dev-rodrigobaliza) how do we handle this error?
+			return
+		}
+		response["deck"] = d.ToResponse(t.id, true)
 	}
-	response["table"] = d.ToResponse(t.id, true)
 
 	switch status {
 	case "action":
@@ -410,13 +483,11 @@ func (t *Table) sendPlayerResponse(playerID, status, message string, group *grou
 	case "start":
 		response["status"] = "game started"
 
+	case "stop":
+		response["status"] = "game over"
+
 	case "loose", "win":
-		if t.state == table.StateFinish {
-			message = "game over"
-			// TODO (@dev-rodrigobaliza) inform the winner for all
-		} else {
-			message = "game status"
-		}
+		message = "game status"
 		response["status"] = status
 
 	default:
@@ -424,5 +495,5 @@ func (t *Table) sendPlayerResponse(playerID, status, message string, group *grou
 	}
 
 	// send response
-	pl.SendResponse(nil, "info", message, response)
+	p.SendResponse(nil, "info", message, response)
 }

@@ -12,79 +12,79 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/internal/core/table"
 )
 
-func (s *Saloon) resourceTableCreate(player *player.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableCreate(pl *player.Player, req *request.WSRequest) {
 	// input validation
-	strGameMode, ok := message.Data["game_mode"].(string)
+	strGameMode, ok := req.Data["game_mode"].(string)
 	if !ok {
-		s.sendResponseError(player, message, "game mode invalid", nil)
+		s.sendResponseError(pl, req, "game mode invalid", nil)
 		return
 	}
 	// TODO (@dev-rodrigobaliza) use default values from game mode
-	minPlayers, ok := message.Data["min_players"].(float64)
+	minPlayers, ok := req.Data["min_players"].(float64)
 	if !ok {
-		s.sendResponseError(player, message, "min players invalid", nil)
+		s.sendResponseError(pl, req, "min players invalid", nil)
 		return
 	}
-	maxPlayers, ok := message.Data["max_players"].(float64)
+	maxPlayers, ok := req.Data["max_players"].(float64)
 	if !ok || int(maxPlayers) > consts.TABLE_MAX_PLAYERS {
-		s.sendResponseError(player, message, "max players invalid", nil)
+		s.sendResponseError(pl, req, "max players invalid", nil)
 		return
 	}
-	allowBots, ok := message.Data["allow_bots"].(bool)
+	allowBots, ok := req.Data["allow_bots"].(bool)
 	if !ok {
-		s.sendResponseError(player, message, "allow bots invalid", nil)
+		s.sendResponseError(pl, req, "allow bots invalid", nil)
 		return
 	}
 	// TODO (@dev-rodrigobaliza) anyone can create private table ???
-	secret, ok := message.Data["secret"].(string)
+	secret, ok := req.Data["secret"].(string)
 	if !ok {
 		secret = ""
 	}
 	// table validation
 	gameMode := game.StringToMode(strGameMode)
 	if gameMode == game.ModeUnknown {
-		s.sendResponseError(player, message, "game mode invalid", nil)
+		s.sendResponseError(pl, req, "game mode invalid", nil)
 		return
 	}
 	if maxPlayers <= 0 {
-		s.sendResponseError(player, message, "min players invalid", nil)
+		s.sendResponseError(pl, req, "min players invalid", nil)
 		return
 	}
 	if maxPlayers <= 0 {
-		s.sendResponseError(player, message, "max players invalid", nil)
+		s.sendResponseError(pl, req, "max players invalid", nil)
 		return
 	}
 	// database validation
 	// TODO (@dev-rodrigobaliza) database validation ???
 	// if player is registered in other table, remove from there and register here
-	if player.TableID != "" {
-		s.resourceTableLeave(player, message, player.TableID)
+	if pl.TableID != "" {
+		s.resourceTableLeave(pl, req, pl.TableID)
 	}
 	// create new table
-	table, err := table.New(player, secret, int(minPlayers), int(maxPlayers), allowBots, gameMode)
+	table, err := table.New(pl, secret, int(minPlayers), int(maxPlayers), allowBots, gameMode)
 	if err != nil {
-		s.sendResponseError(player, message, "max players invalid", err)
+		s.sendResponseError(pl, req, "max players invalid", err)
 		return
 	}
 	// add table to table list
 	s.addTable(table)
 	// make response
-	response := s.getTableStatus(table)
+	response := s.getTableStatus(table, pl.User.IsAdmin)
 	// send response
-	s.sendResponseSuccess(player, message, "table create", response)
+	s.sendResponseSuccess(pl, req, "table create", response)
 	// debug log
 	s.debug("=== table create %v", response)
 }
 
-func (s *Saloon) resourceTableDelete(player *player.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableDelete(pl *player.Player, req *request.WSRequest) {
 	// input validation
-	tableID := s.getTableID(message)
+	tableID := s.getTableID(req)
 	if tableID == "" {
-		s.sendResponseError(player, message, "table id invalid, nil", nil)
+		s.sendResponseError(pl, req, "table id invalid, nil", nil)
 		return
 	}
-	if tableID != player.TableID {
-		s.sendResponseError(player, message, "table id invalid", nil)
+	if tableID != pl.TableID {
+		s.sendResponseError(pl, req, "table id invalid", nil)
 		return
 	}
 	// database validation
@@ -92,33 +92,33 @@ func (s *Saloon) resourceTableDelete(player *player.Player, message *request.WSR
 	// table validation
 	table, err := s.getTable(tableID)
 	if err != nil || table == nil {
-		s.sendResponseError(player, message, "table id invalid", nil)
+		s.sendResponseError(pl, req, "table id invalid", nil)
 		return
 	}
 	// onwnership validation
-	if !player.User.IsAdmin || table.GetOwner() != player.UUID || table.GetOwner() != "" {
-		s.sendResponseError(player, message, "table id not owned by player", nil)
+	if !pl.User.IsAdmin || table.GetOwner() != pl.UUID || table.GetOwner() != "" {
+		s.sendResponseError(pl, req, "table not owned by player", nil)
 		return
 	}
 	// remove table
 	s.delTable(table)
 	// make response
 	response := make(map[string]interface{})
-	response["table_id"] = player.TableID
+	response["table_id"] = pl.TableID
 	// send response
-	s.sendResponseSuccess(player, message, "table remove", response)
+	s.sendResponseSuccess(pl, req, "table remove", response)
 	// debug log
 	s.debug("=== table remove %v", response)
 }
 
-func (s *Saloon) resourceTableEnter(player *player.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableEnter(pl *player.Player, req *request.WSRequest) {
 	// input validation
-	tableID := s.getTableID(message)
+	tableID := s.getTableID(req)
 	if tableID == "" {
-		s.sendResponseError(player, message, "table id invalid", nil)
+		s.sendResponseError(pl, req, "table id invalid", nil)
 		return
 	}
-	secret, ok := message.Data["secret"].(string)
+	secret, ok := req.Data["secret"].(string)
 	if !ok {
 		secret = ""
 	}
@@ -127,41 +127,41 @@ func (s *Saloon) resourceTableEnter(player *player.Player, message *request.WSRe
 	// table validation
 	table, err := s.getTable(tableID)
 	if err != nil || table == nil {
-		s.sendResponseError(player, message, "table id invalid", nil)
+		s.sendResponseError(pl, req, "table id invalid", nil)
 		return
 	}
 	// if player is registered in other table, remove from there and register here
-	if player.TableID != "" {
-		s.resourceTableLeave(player, message, player.TableID)
+	if pl.TableID != "" {
+		s.resourceTableLeave(pl, req, pl.TableID)
 	}
 	// enter table (sit maybe?)
-	err = table.AddPlayer(player, secret)
+	err = table.AddPlayer(pl, secret)
 	if err != nil {
-		s.sendResponseError(player, message, "enter table failed", err)
+		s.sendResponseError(pl, req, "enter table failed", err)
 		return
 	}
 	// make reponse
-	response := s.getTableStatus(table)
+	response := s.getTableStatus(table, pl.User.IsAdmin)
 	// send response
-	s.sendResponseSuccess(player, message, "enter table", response)
+	s.sendResponseSuccess(pl, req, "enter table", response)
 	// debug log
 	s.debug("=== table enter %v", response)
 }
 
-func (s *Saloon) resourceTableGame(player *player.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableGame(pl *player.Player, req *request.WSRequest) {
 	// input validation
-	tableID := s.getTableID(message)
+	tableID := s.getTableID(req)
 	if tableID == "" {
-		s.sendResponseError(player, message, "table id invalid, nil", nil)
+		s.sendResponseError(pl, req, "table id invalid, nil", nil)
 		return
 	}
-	if tableID != player.TableID {
-		s.sendResponseError(player, message, "table id invalid", nil)
+	if tableID != pl.TableID {
+		s.sendResponseError(pl, req, "table id invalid", nil)
 		return
 	}
-	action := s.getAction(message)
+	action := s.getAction(req)
 	if tableID == "" {
-		s.sendResponseError(player, message, "action invalid, nil", nil)
+		s.sendResponseError(pl, req, "action invalid, nil", nil)
 		return
 	}
 	// database validation
@@ -169,103 +169,117 @@ func (s *Saloon) resourceTableGame(player *player.Player, message *request.WSReq
 	// table validation
 	table, err := s.getTable(tableID)
 	if err != nil || table == nil {
-		s.sendResponseError(player, message, "table id invalid", nil)
+		s.sendResponseError(pl, req, "table id invalid", nil)
 		return
 	}
 	// create response
 	var response map[string]interface{}
 	switch action {
-	case "continue":
-		player.Action = action
+	case "continue", "discontinue":
+		pl.Action = action
 
 	case "status":
 		response = s.getTableGameStatus(table)
 
 	case "start":
-		response = s.actionTableGameStart(player, message, table)
+		response = s.actionTableGameStart(pl, req, table)
 
 	case "stop":
-		response = s.actionTableGameStop(player, message, table)
+		response = s.actionTableGameStop(pl, req, table)
 
 	default:
-		s.sendResponseError(player, message, "action invalid", nil)
+		s.sendResponseError(pl, req, "action invalid", nil)
 		return
 	}
 	// send response
 	if response != nil {
-		s.sendResponseSuccess(player, message, fmt.Sprintf("%s table game", action), response)
+		s.sendResponseSuccess(pl, req, fmt.Sprintf("%s table game", action), response)
 		// debug log
 		s.debug("=== table group %s %v", action, response)
 	}
 }
 
-func (s *Saloon) resourceTableGroup(player *player.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableGroup(pl *player.Player, req *request.WSRequest) {
 	// input validation
-	tableID := s.getTableID(message)
+	tableID := s.getTableID(req)
 	if tableID == "" {
-		s.sendResponseError(player, message, "table id invalid", nil)
+		s.sendResponseError(pl, req, "table id invalid", nil)
 		return
 	}
-	groupID := s.getGroupID(message)
-	action := s.getAction(message)
+	action := s.getAction(req)
 	if action == "" {
-		s.sendResponseError(player, message, "action invalid", nil)
+		s.sendResponseError(pl, req, "action invalid", nil)
 		return
 	}
-	if groupID == 0 && action != "enter" {
-		s.sendResponseError(player, message, "group id invalid", nil)
-		return
+	var groupID int
+	if action != "bot" {
+		groupID = s.getGroupID(req)
+		if groupID == 0 {
+			s.sendResponseError(pl, req, "group id invalid", nil)
+			return
+		}
+	}
+	var quantity int
+	if action == "bot" {
+		quantity = s.getQuantity(req)
+		if quantity == 0 {
+			s.sendResponseError(pl, req, "bot quantity invalid", nil)
+			return
+		}
 	}
 	// database validation
 	// TODO (@dev-rodrigobaliza) database validation ???
 	// table validation
 	table, err := s.getTable(tableID)
 	if err != nil || table == nil {
-		s.sendResponseError(player, message, "table id invalid", nil)
+		s.sendResponseError(pl, req, "table id invalid", nil)
 		return
 	}
-	if !table.HasGroup(groupID) {
-		s.sendResponseError(player, message, "group id invalid", nil)
+	if action != "bot" && !table.HasGroup(groupID) {
+		s.sendResponseError(pl, req, "group id invalid", nil)
 		return
 	}
 	// create response
 	var response map[string]interface{}
 	switch action {
 	case "enter":
-		response = s.actionTableGroupEnter(player, message, table, groupID)
+		response = s.actionTableGroupEnter(pl, req, table, groupID)
 
 	case "leave":
-		response = s.actionTableGroupLeave(player, message, table, groupID)
+		response = s.actionTableGroupLeave(pl, req, table, groupID)
+
+	case "bot":
+		response = s.actionTableGroupBot(pl, req, table, quantity)
 
 	case "status":
-		response = s.getTableGroupStatus(table, groupID)
+		response = s.getTableGroupStatus(table, groupID, pl.User.IsAdmin)
 
 	default:
-		s.sendResponseError(player, message, "action invalid", nil)
+		s.sendResponseError(pl, req, "action invalid", nil)
 		return
 	}
 	// send response
 	if response != nil {
-		s.sendResponseSuccess(player, message, fmt.Sprintf("%s table group", action), response)
+		s.sendResponseSuccess(pl, req, fmt.Sprintf("%s table group", action), response)
 		// debug log
 		s.debug("=== table group %s %v", action, response)
 	}
 }
 
-func (s *Saloon) resourceTableLeave(player *player.Player, message *request.WSRequest, tableID string) {
+func (s *Saloon) resourceTableLeave(pl *player.Player, req *request.WSRequest, tableID string) {
 	// empty tableID means request is external (client)
 	// otherwise request is internal, (server, probably player leaving one table to create another)
 	internal := (tableID != "")
 
 	if !internal {
 		// input validation
-		tableID = s.getTableID(message)
+		tableID = s.getTableID(req)
 		if tableID == "" {
-			s.sendResponseError(player, message, "table id invalid", nil)
+			s.sendResponseError(pl, req, "table id invalid", nil)
 			return
 		}
-		if tableID != player.TableID {
-			s.sendResponseError(player, message, "table id invalid", nil)
+		if tableID != pl.TableID {
+			s.sendResponseError(pl, req, "table id invalid", nil)
 			return
 		}
 	}
@@ -275,15 +289,15 @@ func (s *Saloon) resourceTableLeave(player *player.Player, message *request.WSRe
 	table, err := s.getTable(tableID)
 	if err != nil || table == nil {
 		if !internal {
-			s.sendResponseError(player, message, "table id invalid", nil)
+			s.sendResponseError(pl, req, "table id invalid", nil)
 		}
 		return
 	}
 	// leave table
-	err = table.DelPlayer(player.UUID)
+	err = table.DelPlayer(pl.UUID)
 	if err != nil {
 		if err != errors.ErrMinPlayers && err != errors.ErrEmptyTable && !internal {
-			s.sendResponseError(player, message, "leave table failed", err)
+			s.sendResponseError(pl, req, "leave table failed", err)
 			return
 		}
 		// table empty or min players reached
@@ -292,17 +306,17 @@ func (s *Saloon) resourceTableLeave(player *player.Player, message *request.WSRe
 	// send response
 	data := make(map[string]interface{})
 	data["table_id"] = tableID
-	s.sendResponseSuccess(player, message, "leave table", data)
+	s.sendResponseSuccess(pl, req, "leave table", data)
 	// debug log
 	s.debug("=== table leave %s [internal: %t]", tableID, internal)
 }
 
-func (s *Saloon) resourceTableRemoveForced(table *table.Table, force bool, err error) {
+func (s *Saloon) resourceTableRemoveForced(tb *table.Table, force bool, err error) {
 	if err == errors.ErrMinPlayers {
 		players := s.players.GetAllValues()
 		// remove all players from this table
 		for _, player := range players {
-			if player.TableID == table.GetID() {
+			if player.TableID == tb.GetID() {
 				player.TableID = ""
 				// send the bad news
 				s.sendResponseError(player, nil, "table removed", err)
@@ -312,19 +326,19 @@ func (s *Saloon) resourceTableRemoveForced(table *table.Table, force bool, err e
 		time.Sleep(time.Second * 3)
 	}
 	// set table state
-	table.Stop(force)
+	tb.Stop(force)
 	// remove the table
-	err = s.delTable(table)
+	err = s.delTable(tb)
 	if err != nil {
 		s.debug("error while deleting table (forced remove): %s", err.Error())
 	}
 }
 
-func (s *Saloon) resourceTableStatus(player *player.Player, message *request.WSRequest) {
+func (s *Saloon) resourceTableStatus(pl *player.Player, req *request.WSRequest) {
 	// input validation
-	tableID := s.getTableID(message)
+	tableID := s.getTableID(req)
 	if tableID == "" {
-		s.sendResponseError(player, message, "table id invalid", nil)
+		s.sendResponseError(pl, req, "table id invalid", nil)
 		return
 	}
 	// database validation
@@ -332,40 +346,40 @@ func (s *Saloon) resourceTableStatus(player *player.Player, message *request.WSR
 	// table validation
 	table, err := s.getTable(tableID)
 	if err != nil || table == nil {
-		s.sendResponseError(player, message, "table id invalid", nil)
+		s.sendResponseError(pl, req, "table id invalid", nil)
 		return
 	}
 	// send response
-	response := s.getTableStatus(table)
-	s.sendResponseSuccess(player, message, "status table", response)
+	response := s.getTableStatus(table, pl.User.IsAdmin)
+	s.sendResponseSuccess(pl, req, "status table", response)
 	// debug log
 	s.debug("=== table status %v", response)
 }
 
-func (s *Saloon) serviceTable(player *player.Player, message *request.WSRequest) {
-	switch message.Resource {
+func (s *Saloon) serviceTable(pl *player.Player, req *request.WSRequest) {
+	switch req.Resource {
 	case "create":
-		s.resourceTableCreate(player, message)
+		s.resourceTableCreate(pl, req)
 
 	case "enter":
-		s.resourceTableEnter(player, message)
+		s.resourceTableEnter(pl, req)
 
 	case "game":
-		s.resourceTableGame(player, message)
+		s.resourceTableGame(pl, req)
 
 	case "group":
-		s.resourceTableGroup(player, message)
+		s.resourceTableGroup(pl, req)
 
 	case "leave":
-		s.resourceTableLeave(player, message, "")
+		s.resourceTableLeave(pl, req, "")
 
 	case "remove":
-		s.resourceTableDelete(player, message)
+		s.resourceTableDelete(pl, req)
 
 	case "status":
-		s.resourceTableStatus(player, message)
+		s.resourceTableStatus(pl, req)
 
 	default:
-		s.sendResponseError(player, message, "table resource not found", nil)
+		s.sendResponseError(pl, req, "table resource not found", nil)
 	}
 }

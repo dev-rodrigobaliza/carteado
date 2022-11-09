@@ -3,6 +3,8 @@ package consts
 const (
 	APP_CONFIG_FILENAME = "config.json"
 
+	BOT_PREFIX_ID = "bid-"
+
 	CARD_PREFIX_ID = "cid-"
 
 	DECK_DEFAULT_CARD_SIZE = 52

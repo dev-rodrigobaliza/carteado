@@ -3,31 +3,31 @@ package saloon
 import (
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
 	"github.com/dev-rodrigobaliza/carteado/errors"
-	pl "github.com/dev-rodrigobaliza/carteado/internal/core/player"
+	"github.com/dev-rodrigobaliza/carteado/internal/core/player"
 )
 
-func (s *Saloon) resourceAdminStatus(player *pl.Player, message *request.WSRequest) {
-	authenticatedOnly, ok := message.Data["authenticated_only"].(bool)
+func (s *Saloon) resourceAdminStatus(pl *player.Player, req *request.WSRequest) {
+	authenticatedOnly, ok := req.Data["authenticated_only"].(bool)
 	if !ok {
-		s.sendResponseError(player, message, "authenticated only invalid", nil)
+		s.sendResponseError(pl, req, "authenticated only invalid", nil)
 	}
 	response := s.getServerStatusResponse(authenticatedOnly)
 
-	s.sendResponseSuccess(player, message, "status server", response)
+	s.sendResponseSuccess(pl, req, "status server", response)
 }
 
-func (s *Saloon) serviceAdmin(player *pl.Player, message *request.WSRequest) {
+func (s *Saloon) serviceAdmin(pl *player.Player, req *request.WSRequest) {
 	// basic validation (admins only)
-	if !player.User.IsAdmin {
-		s.sendResponseError(player, message, "unauthorized", errors.ErrUnauthorized)
+	if !pl.User.IsAdmin {
+		s.sendResponseError(pl, req, "unauthorized", errors.ErrUnauthorized)
 		return
 	}
 
-	switch message.Resource {
+	switch req.Resource {
 	case "status":
-		s.resourceAdminStatus(player, message)
+		s.resourceAdminStatus(pl, req)
 
 	default:
-		s.sendResponseError(player, message, "auth resource not found", nil)
+		s.sendResponseError(pl, req, "auth resource not found", nil)
 	}
 }

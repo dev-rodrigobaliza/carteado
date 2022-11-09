@@ -6,7 +6,7 @@ import (
 
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
-	pl "github.com/dev-rodrigobaliza/carteado/internal/core/player"
+	"github.com/dev-rodrigobaliza/carteado/internal/core/player"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/table"
 )
 
@@ -16,11 +16,38 @@ func (s *Saloon) debug(format string, v ...any) {
 	}
 }
 
-func (s *Saloon) getServerStatusResponse(authenticatedOnly bool) map[string]interface{} {
+func (s *Saloon) getAction(req *request.WSRequest) string {
+	action, ok := req.Data["action"].(string)
+	if !ok {
+		return ""
+	}
+
+	return action
+}
+
+func (s *Saloon) getGroupID(req *request.WSRequest) int {
+	groupID, ok := req.Data["group_id"].(float64)
+	if !ok {
+		return 0
+	}
+
+	return int(groupID)
+}
+
+func (s *Saloon) getQuantity(req *request.WSRequest) int {
+	quantity, ok := req.Data["quantity"].(float64)
+	if !ok {
+		return 0
+	}
+
+	return int(quantity)
+}
+
+func (s *Saloon) getServerStatusResponse(admin bool) map[string]interface{} {
 	// get tables
 	tables := make([]*response.Table, 0)
 	for _, table := range s.tables.GetAllValues() {
-		tables = append(tables, table.ToResponse())
+		tables = append(tables, table.ToResponse(admin))
 	}
 
 	response := make(map[string]interface{})
@@ -36,41 +63,23 @@ func (s *Saloon) getServerStatusResponse(authenticatedOnly bool) map[string]inte
 	return response
 }
 
-func (s *Saloon) getAction(message *request.WSRequest) string {
-	action, ok := message.Data["action"].(string)
-	if !ok {
-		return ""
-	}
-
-	return action
-}
-
-func (s *Saloon) getGroupID(message *request.WSRequest) int {
-	groupID, ok := message.Data["group_id"].(float64)
-	if !ok {
-		return 0
-	}
-
-	return int(groupID)
-}
-
-func (s *Saloon) getTableGameStatus(table *table.Table) map[string]interface{} {
+func (s *Saloon) getTableGameStatus(tb *table.Table) map[string]interface{} {
 	response := make(map[string]interface{})
-	response["game_status"] = table.GetGameStatus()
+	response["game_status"] = tb.GetGameStatus()
 
 	return response
 }
 
-func (s *Saloon) getTableGroupStatus(table *table.Table, groupID int) map[string]interface{} {
-	group, _ := table.GetGroup(groupID)
+func (s *Saloon) getTableGroupStatus(tb *table.Table, groupID int, admin bool) map[string]interface{} {
+	group, _ := tb.GetGroup(groupID)
 	response := make(map[string]interface{})
-	response["table"] = group.ToResponse(false)
+	response["table"] = group.ToResponse(false, admin)
 
 	return response
 }
 
-func (s *Saloon) getTableID(message *request.WSRequest) string {
-	tableID, ok := message.Data["table_id"].(string)
+func (s *Saloon) getTableID(req *request.WSRequest) string {
+	tableID, ok := req.Data["table_id"].(string)
 	if !ok {
 		return ""
 	}
@@ -78,27 +87,27 @@ func (s *Saloon) getTableID(message *request.WSRequest) string {
 	return tableID
 }
 
-func (s *Saloon) getTableStatus(table *table.Table) map[string]interface{} {
+func (s *Saloon) getTableStatus(tb *table.Table, admin bool) map[string]interface{} {
 	response := make(map[string]interface{})
-	response["table"] = table.ToResponse()
+	response["table"] = tb.ToResponse(admin)
 
 	return response
 }
 
-func (s *Saloon) greetingMesssage(player *pl.Player, message string) {
+func (s *Saloon) greetingMesssage(pl *player.Player, message string) {
 	response := make(map[string]interface{})
 	response["server"] = s.cfg.Name
 	response["version"] = s.cfg.Version
 
-	player.SendResponse(nil, "info", message, response)
+	pl.SendResponse(nil, "info", message, response)
 }
 
-func (s *Saloon) loginPlayer(player *pl.Player) {
-	var welcomePlayer *pl.Player
+func (s *Saloon) loginPlayer(pl *player.Player) {
+	var welcomePlayer *player.Player
 	// if player has previous login and remove it
 	players := s.players.GetAllValues()
 	for _, p := range players {
-		if p != player && p.User != nil && p.User.ID == player.User.ID {
+		if p != pl && p.User != nil && p.User.ID == pl.User.ID {
 			p.User = nil
 			welcomePlayer = p
 			break
@@ -110,16 +119,16 @@ func (s *Saloon) loginPlayer(player *pl.Player) {
 	}
 }
 
-func (s *Saloon) sendResponseError(player *pl.Player, request *request.WSRequest, message string, err error) {
+func (s *Saloon) sendResponseError(pl *player.Player, req *request.WSRequest, message string, err error) {
 	var data map[string]interface{}
 	if err != nil && s.cfg.Debug {
 		data = make(map[string]interface{})
 		data["error"] = err.Error()
 	}
 
-	player.SendResponse(request, "error", message, data)
+	pl.SendResponse(req, "error", message, data)
 }
 
-func (s *Saloon) sendResponseSuccess(player *pl.Player, request *request.WSRequest, message string, data map[string]interface{}) {
-	player.SendResponse(request, "success", message, data)
+func (s *Saloon) sendResponseSuccess(pl *player.Player, req *request.WSRequest, message string, data map[string]interface{}) {
+	pl.SendResponse(req, "success", message, data)
 }

@@ -215,11 +215,11 @@ func (g *Group) HasPlayer(playerID string) bool {
 	return g.players.HasKey(playerID)
 }
 
-func (g *Group) ToResponse(full bool) *response.Group {
+func (g *Group) ToResponse(full, admin bool) *response.Group {
 	pls := make([]*response.Player, 0)
 	players := g.players.GetAllValues()
 	for _, player := range players {
-		pls = append(pls, player.ToResponse(full))
+		pls = append(pls, player.ToResponse(full, admin))
 	}
 
 	var created string

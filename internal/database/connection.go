@@ -29,7 +29,6 @@ func createConnection(cfg *config.App, gc *gorm.Config) (*gorm.DB, error) {
 		} else {
 			dbConnection = fmt.Sprintf("%s sslmode=disable", dbConnection)
 		}
-
 		return gorm.Open(postgres.Open(dbConnection), gc)
 
 	case "mssql":
@@ -51,6 +50,7 @@ func createConnection(cfg *config.App, gc *gorm.Config) (*gorm.DB, error) {
 			cfg.Database.Name,
 		)
 		return gorm.Open(mysql.Open(dbConnection), gc)
+
 	default:
 		return nil, errors.ErrInvalidDatabaseType
 	}

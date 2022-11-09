@@ -1,5 +1,17 @@
 package response
 
+type Bot struct {
+	Requested int `json:"requested"`
+	Created   int `json:"created"`
+}
+
+func NewBot(requested, created int) *Bot {
+	return &Bot{
+		Requested: requested,
+		Created:   created,
+	}
+}
+
 type Card struct {
 	Card  string `json:"card"`
 	Value int    `json:"value"`
@@ -61,19 +73,23 @@ func NewGroup(id, minPlayers, maxPlayers int, players []*Player, createdAt strin
 
 type Player struct {
 	ID        string `json:"id"`
+	Address   string `json:"address,omitempty"`
 	Name      string `json:"name"`
 	TableID   string `json:"table_id,omitempty"`
 	GroupID   string `json:"group_id,omitempty"`
+	IsBot     bool   `json:"is_bot"`
 	CreatedAt string `json:"created_at"`
 	LoggedAt  string `json:"logged_at,omitempty"`
 }
 
-func NewPlayer(id, name, tableID, groupID, createdAt, loggedAt string) *Player {
+func NewPlayer(id, address, name, tableID, groupID, createdAt, loggedAt string, isBot bool) *Player {
 	player := &Player{
 		ID:        id,
+		Address:   address,
 		Name:      name,
 		TableID:   tableID,
 		GroupID:   groupID,
+		IsBot:     isBot,
 		CreatedAt: createdAt,
 		LoggedAt:  loggedAt,
 	}
