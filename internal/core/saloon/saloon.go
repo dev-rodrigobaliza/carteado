@@ -85,7 +85,6 @@ func (s *Saloon) Start() {
 		case player := <-s.addChan:
 			s.players.Insert(player.UUID, player)
 			s.debug("+++ hub - new player connected\t%s", player)
-			s.debug("*** server status: %v", s.getServerStatusResponse(false))
 
 		case player := <-s.delChan:
 			// TODO (@dev-rodrigobaliza) remove from table, group and other stuff
@@ -95,7 +94,6 @@ func (s *Saloon) Start() {
 			} else {
 				s.debug("--- hub - player disconnected\t%s", player)
 			}
-			s.debug("*** server status: %v", s.getServerStatusResponse(false))
 
 		case <-s.doneChan:
 			return

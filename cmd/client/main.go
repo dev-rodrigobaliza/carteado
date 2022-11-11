@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/dev-rodrigobaliza/carteado/domain/request"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
@@ -42,7 +43,7 @@ func (c *Client) listen() {
 		_, data, err := c.conn.ReadMessage()
 		if err != nil {
 			c.Stop()
-			fmt.Printf("Cannot read websocket message: %s\n", err.Error())
+			fmt.Printf("cannot read websocket message: %s\n", err.Error())
 			break
 		}
 
@@ -50,7 +51,7 @@ func (c *Client) listen() {
 		err = message.FromBytes(data)
 		if err != nil {
 			c.Stop()
-			fmt.Printf("Cannot decode websocket message: %s\n", err.Error())
+			fmt.Printf("cannot decode websocket message: %s\n", err.Error())
 			break
 		}
 
@@ -60,15 +61,22 @@ func (c *Client) listen() {
 
 func (c *Client) listenListen() {
 	requestID := uint64(1)
+	var tableID string
 
 	for {
 		message := <-c.message
 		fmt.Printf("message received: %v\n", message)
+
+		if message.Status != "info" && message.Status != "success" {
+			fmt.Println("wrong expected status")
+			break
+		}
+
 		requestID++
 		switch message.Message {
-		case "welcome player":
+		case "welcome stranger":
 			data := make(map[string]interface{})
-			data["token"] = "v4.local.TqajZDVRzA-wGa2yhzzfnNErivkuofatcxSGr1RyniA1P06m0NhbZUC9n3BfIu4eSgxupyDDgZ2a447sbM8D3dtvGdpiyioSmd2VjYveBbAZu8SXo9ODI1YiYA4jgBVxZvebKNl9DOptvZ_lKwi19xvrtp_UdW0"
+			data["token"] = "v4.local.cEPMuKYqQlP7YfAO6Gey8ilVVWYHDYyC3OTG3LFEbw8JcGKg-p28KcJ2UbRKZEljtArFNepFT_DLIf-c2BXSiziJbJBxnGhA5Mcq_bYEPBo3apVghqHw3Zfk0HIw-3kIcKLy4cUFPGrEP54DIIx9TAwIHQ0"
 
 			req := &request.WSRequest{
 				RequestID: requestID,
@@ -79,60 +87,64 @@ func (c *Client) listenListen() {
 
 			c.sendBuf <- req.ToBytes()
 
-		case "authenticated":
+		case "hello user":
 			data := make(map[string]interface{})
-			data["game_type"] = "blackjack"
-			data["min_players"] = 2
+			data["game_mode"] = "blackjack"
+			data["min_players"] = 1
 			data["max_players"] = 5
 			data["allow_bots"] = true
-			data["secret"] = "secret"
 
 			req := &request.WSRequest{
 				RequestID: requestID,
-				Service:   "game",
+				Service:   "table",
 				Resource:  "create",
 			}
 			req.Data = data
 
 			c.sendBuf <- req.ToBytes()
 
-		case "game created":
-			gameID, ok := message.Data["game_id"].(string)
+		case "table create":
+			var ok bool
+			tableID, ok = message.Data["table"].(map[string]interface{})["id"].(string)
 			if !ok {
-				fmt.Printf("message received and not processed: %v\n", message)
-				continue
+				fmt.Println("table id not processed")
+				break
 			}
 
 			data := make(map[string]interface{})
-			data["game_id"] = gameID
+			data["table_id"] = tableID
+			data["action"] = "bot"
+			data["quantity"] = 10
 
 			req := &request.WSRequest{
 				RequestID: requestID,
-				Service:   "game",
-				Resource:  "status",
+				Service:   "table",
+				Resource:  "group",
 			}
 			req.Data = data
 
 			c.sendBuf <- req.ToBytes()
 
-		// case "game status", "game removed":
-		// 	gameID, ok := message.Data["game_id"].(string)
-		// 	if !ok {
-		// 		fmt.Printf("message received and not processed: %v\n", message)
-		// 		continue
-		// 	}
+		case "bot table group":
+			time.Sleep(time.Minute * 1)
+			data := make(map[string]interface{})
+			data["table_id"] = tableID
+			data["action"] = "start"
 
-		// 	data := make(map[string]interface{})
-		// 	data["game_id"] = gameID
+			req := &request.WSRequest{
+				RequestID: requestID,
+				Service:   "table",
+				Resource:  "game",
+			}
+			req.Data = data
 
-		// 	req := &request.WSRequest{
-		// 		RequestID: requestID,
-		// 		Service:   "game",
-		// 		Resource:  "remove",
-		// 	}
-		// 	req.Data = data
+			c.sendBuf <- req.ToBytes()
 
-		// 	c.sendBuf <- req.ToBytes()
+		case "start table game":
+			fmt.Println("game started")
+
+		default:
+			fmt.Println("message not processed")
 		}
 	}
 }
@@ -166,7 +178,7 @@ func main() {
 
 	ws, _, err := websocket.DefaultDialer.Dial(urlStr, nil)
 	if err != nil {
-		fmt.Printf("Cannot connect to websocket: %s - [%s]\n", urlStr, err.Error())
+		fmt.Printf("cannot connect to websocket: %s - [%s]\n", urlStr, err.Error())
 		return
 	}
 	client.conn = ws

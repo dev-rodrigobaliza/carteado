@@ -48,10 +48,15 @@ var (
 
 	ErrNotImplemented = errors.New("not implemented")
 
-	ErrSendPlayerAction = errors.New("send player request action")
-	ErrSendPlayerCards  = errors.New("send player cards")
-	ErrSendPlayerLoose  = errors.New("send player loose")
-	ErrSendPlayerWin    = errors.New("send player win")
+	ErrSendBotPlayerContinue    = errors.New("send bot player continue")
+	ErrSendBotPlayerDiscontinue = errors.New("send bot player discontinue")
+	ErrSendBotPlayerGotCard     = errors.New("send bot player got card")
+
+	ErrSendPlayerAction  = errors.New("send player request action")
+	ErrSendPlayerCards   = errors.New("send player cards")
+	ErrSendPlayerGotCard = errors.New("send player got card")
+	ErrSendPlayerLoose   = errors.New("send player loose")
+	ErrSendPlayerWin     = errors.New("send player win")
 
 	ErrGameStart = errors.New("game already started")
 	ErrGameStop  = errors.New("game not started")

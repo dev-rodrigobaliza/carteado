@@ -16,7 +16,6 @@ import (
 type Player struct {
 	// monted on create
 	UUID      string
-	Addr      string
 	conn      *websocket.Conn
 	send      chan []byte
 	boardChan chan pl.Message[*Player]
@@ -36,7 +35,6 @@ type Player struct {
 func New(conn *websocket.Conn, boardChan chan pl.Message[*Player], delChan chan *Player) *Player {
 	player := &Player{
 		UUID:      utils.NewUUID(consts.PLAYER_PREFIX_ID),
-		Addr:      conn.RemoteAddr().String(),
 		conn:      conn,
 		send:      make(chan []byte, consts.PLAYER_MESSAGE_STACK_SIZE),
 		boardChan: boardChan,
@@ -115,10 +113,21 @@ func (p *Player) SendResponse(request *request.WSRequest, status, message string
 }
 
 func (p *Player) String() string {
-	return p.Addr
+	var name string
+	if p.IsBot {
+		name = "bot [" + p.UUID + "]"
+	} else {
+		if p.User == nil {
+			name = "# unauthenticated #"
+		} else {
+			name = p.User.Name
+		}
+	}
+
+	return name
 }
 
-func (p *Player) ToResponse(full, admin bool) *response.Player {
+func (p *Player) Response(showAddress, showTableID bool) *response.Player {
 	var address string
 	var name string
 	var tableID string
@@ -127,8 +136,8 @@ func (p *Player) ToResponse(full, admin bool) *response.Player {
 	if p.IsBot {
 		name = "bot [" + p.UUID + "]"
 	} else {
-		if admin {
-			address = p.conn.LocalAddr().String()
+		if showAddress {
+			address = p.conn.RemoteAddr().String()
 		}
 		if p.User == nil {
 			name = "# unauthenticated #"
@@ -137,8 +146,7 @@ func (p *Player) ToResponse(full, admin bool) *response.Player {
 			logged = fmt.Sprintf("%d", p.loggedAt.UnixMilli())
 		}
 	}
-
-	if full {
+	if showTableID {
 		tableID = p.TableID
 	}
 	created := fmt.Sprintf("%d", p.createdAt.UnixMilli())

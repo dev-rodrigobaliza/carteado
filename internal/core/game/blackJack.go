@@ -87,7 +87,7 @@ func (g *BlackJack) GetState() game.State {
 	return g.state
 }
 
-func (g *BlackJack) Loop() (bool, error) {
+func (g *BlackJack) Loop() (string, bool, error) {
 	switch g.state {
 	case game.StateDealing:
 		return g.deal()
@@ -102,7 +102,24 @@ func (g *BlackJack) Loop() (bool, error) {
 		return g.wait()
 	}
 
-	return false, errors.ErrInvalidGameState
+	return "", false, errors.ErrInvalidGameState
+}
+
+func (g *BlackJack) Response() *response.Game {
+	state := g.state.String()
+	created := fmt.Sprintf("%d", g.createdAt.UnixMilli())
+	var started string
+	if g.startedAt.After(g.createdAt) {
+		started = fmt.Sprintf("%d", g.startedAt.UnixMilli())
+	}
+
+	game := &response.Game{
+		State:     state,
+		CreatedAt: created,
+		StartedAt: started,
+	}
+
+	return game
 }
 
 func (g *BlackJack) SetState(gameState game.State) {
@@ -147,36 +164,21 @@ func (g *BlackJack) Stop() error {
 	return nil
 }
 
-func (g *BlackJack) ToResponse() *response.Game {
-	state := g.state.String()
-	created := fmt.Sprintf("%d", g.createdAt.UnixMilli())
-	var started string
-	if g.startedAt.After(g.createdAt) {
-		started = fmt.Sprintf("%d", g.startedAt.UnixMilli())
-	}
-
-	game := &response.Game{
-		State:     state,
-		CreatedAt: created,
-		StartedAt: started,
-	}
-
-	return game
+func (g *BlackJack) bet() (string, bool, error) {
+	return "", false, errors.ErrNotImplemented
 }
 
-func (g *BlackJack) bet() (bool, error) {
-	return false, errors.ErrNotImplemented
-}
-
-func (g *BlackJack) checkCard(group *group.Group, player *player.Player) (bool, error) {
+func (g *BlackJack) checkCard(group *group.Group, player *player.Player) (string, bool, error) {
 	player.Action = ""
 	if !player.IsBot {
-		return false, errors.ErrSendPlayerAction // send request action to player
+		return player.UUID, false, errors.ErrSendPlayerAction // send request action to player
 	}
 	// count cards
 	score := group.GetGroupScore()
 	luke := rand.Intn(10)
-	if score < 15 {
+	if score < 12 {
+		player.Action = "continue"
+	} else if score < 15 {
 		if luke < 9 {
 			player.Action = "continue"
 		} else {
@@ -192,10 +194,14 @@ func (g *BlackJack) checkCard(group *group.Group, player *player.Player) (bool, 
 		}
 	}
 
-	return false, nil
+	if player.Action == "continue" {
+		return player.UUID, false, errors.ErrSendBotPlayerContinue
+	}
+
+	return player.UUID, false, errors.ErrSendBotPlayerDiscontinue
 }
 
-func (g *BlackJack) checkHighScore() (bool, error) {
+func (g *BlackJack) checkHighScore() (string, bool, error) {
 	highPlayers := make([]string, 0)
 	highScore := 0
 
@@ -235,10 +241,10 @@ func (g *BlackJack) checkHighScore() (bool, error) {
 		}
 	}
 
-	return true, nil
+	return "", true, nil
 }
 
-func (g *BlackJack) checkWinner(group *group.Group, player *player.Player, state gru.State) (bool, error) {
+func (g *BlackJack) checkWinner(group *group.Group, player *player.Player, state gru.State) (string, bool, error) {
 	// clear player action
 	player.Action = ""
 	// get player score
@@ -247,21 +253,27 @@ func (g *BlackJack) checkWinner(group *group.Group, player *player.Player, state
 	if score < consts.GAME_BLACKJACK_WINNING_SCORE {
 		// can keep playing
 		group.State = state
+		if group.State == gru.StateCard || group.State == gru.StateFinish {
+			return player.UUID, false, nil
+		}
+		if player.IsBot {
+			return player.UUID, false, errors.ErrSendBotPlayerGotCard
+		}
 
-		return false, nil
+		return player.UUID, false, errors.ErrSendPlayerGotCard
 	}
 	// game over for this player
 	group.State = gru.StateFinish
 	if score == consts.GAME_BLACKJACK_WINNING_SCORE {
 		// we have a winner :)
-		return true, errors.ErrSendPlayerWin
+		return player.UUID, true, errors.ErrSendPlayerWin
 	}
 	// we have a looser :(
-	return false, errors.ErrSendPlayerLoose
+	return player.UUID, false, errors.ErrSendPlayerLoose
 }
 
-func (g *BlackJack) deal() (bool, error) {
-	return false, errors.ErrNotImplemented
+func (g *BlackJack) deal() (string, bool, error) {
+	return "", false, errors.ErrNotImplemented
 }
 
 func (g *BlackJack) giveCard(grp *group.Group) error {
@@ -326,11 +338,11 @@ func (g *BlackJack) initGroups() error {
 	return nil
 }
 
-func (g *BlackJack) play() (bool, error) {
+func (g *BlackJack) play() (string, bool, error) {
 	// basic validation
 	groupsCount := len(g.groups)
 	if groupsCount == 0 {
-		return true, errors.ErrEmptyTable
+		return "", true, errors.ErrEmptyTable
 	}
 	// check group rotation
 	if g.groupChanged {
@@ -338,7 +350,7 @@ func (g *BlackJack) play() (bool, error) {
 		if g.group < groupsCount {
 			g.groupChanged = false
 
-			return false, nil
+			return "", false, nil
 		}
 	}
 	// check if all groups has been played
@@ -352,7 +364,7 @@ func (g *BlackJack) play() (bool, error) {
 		g.groups = append(g.groups[:g.group], g.groups[g.group+1:]...)
 		g.groupChanged = true
 
-		return false, nil
+		return "", false, nil
 	}
 	// get the active player
 	player, err := group.GetNextPlayer()
@@ -368,7 +380,7 @@ func (g *BlackJack) play() (bool, error) {
 	case gru.StateCard:
 		group.State = gru.StateAction
 		player.Action = "card"
-		return false, errors.ErrSendPlayerCards
+		return player.UUID, false, errors.ErrSendPlayerCards
 
 	case gru.StateAction:
 		switch player.Action {
@@ -382,10 +394,10 @@ func (g *BlackJack) play() (bool, error) {
 			return g.checkCard(group, player)
 
 		case "":
-			return false, nil
+			return player.UUID, false, nil
 
 		default:
-			return false, errors.ErrInvalidAction // send invalid action to player
+			return "", false, errors.ErrInvalidAction // send invalid action to player
 		}
 
 	case gru.StateStop:
@@ -393,12 +405,12 @@ func (g *BlackJack) play() (bool, error) {
 
 	case gru.StateFinish:
 		g.groupChanged = true
-		return false, nil
+		return "", false, nil
 	}
 
-	return false, errors.ErrInvalidAction
+	return "", false, errors.ErrInvalidAction
 }
 
-func (g *BlackJack) wait() (bool, error) {
-	return false, errors.ErrNotImplemented
+func (g *BlackJack) wait() (string, bool, error) {
+	return "", false, errors.ErrNotImplemented
 }

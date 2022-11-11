@@ -18,15 +18,15 @@ type IGame interface {
 	GetMinPlayersGroup() int
 	GetRound() uint64
 	GetState() game.State
-	Loop() (bool, error)
+	Loop() (string, bool, error)
+	Response() *response.Game
 	SetState(game.State)
 	Start([]*group.Group) error
-	ToResponse() *response.Game
 	Stop() error
-	bet() (bool, error)
-	deal() (bool, error)
-	play() (bool, error)
-	wait() (bool, error)
+	bet() (string, bool, error)
+	deal() (string, bool, error)
+	play() (string, bool, error)
+	wait() (string, bool, error)
 }
 
 func New(gameMode game.Mode) (IGame, error) {

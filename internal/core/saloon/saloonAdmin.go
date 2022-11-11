@@ -7,11 +7,7 @@ import (
 )
 
 func (s *Saloon) resourceAdminStatus(pl *player.Player, req *request.WSRequest) {
-	authenticatedOnly, ok := req.Data["authenticated_only"].(bool)
-	if !ok {
-		s.sendResponseError(pl, req, "authenticated only invalid", nil)
-	}
-	response := s.getServerStatusResponse(authenticatedOnly)
+	response := s.getServerStatusResponse(pl.User.IsAdmin)
 
 	s.sendResponseSuccess(pl, req, "status server", response)
 }

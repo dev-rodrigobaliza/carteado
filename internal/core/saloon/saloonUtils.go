@@ -44,17 +44,28 @@ func (s *Saloon) getQuantity(req *request.WSRequest) int {
 }
 
 func (s *Saloon) getServerStatusResponse(admin bool) map[string]interface{} {
+	// get players out of table
+	playersOut := make([]*response.Player, 0)
+	for _, pl := range s.players.GetAllValues() {
+		if pl.TableID == "" {
+			playersOut = append(playersOut, pl.Response(true, false))
+		}
+	}
 	// get tables
 	tables := make([]*response.Table, 0)
-	for _, table := range s.tables.GetAllValues() {
-		tables = append(tables, table.ToResponse(admin))
+	for _, tb := range s.tables.GetAllValues() {
+		tables = append(tables, tb.Response(true))
 	}
-
+	// make reponse
 	response := make(map[string]interface{})
 	response["server"] = s.cfg.Name
 	response["version"] = s.cfg.Version
 	response["created_at"] = fmt.Sprintf("%d", s.cfg.CreatedAt.UnixMilli())
 	response["players_count"] = s.players.Size()
+	response["players_out_table_count"] = len(playersOut)
+	if len(playersOut) > 0 {
+		response["players_out_table"] = playersOut
+	}
 	response["tables_count"] = len(tables)
 	if len(tables) > 0 {
 		response["tables"] = tables
@@ -73,7 +84,7 @@ func (s *Saloon) getTableGameStatus(tb *table.Table) map[string]interface{} {
 func (s *Saloon) getTableGroupStatus(tb *table.Table, groupID int, admin bool) map[string]interface{} {
 	group, _ := tb.GetGroup(groupID)
 	response := make(map[string]interface{})
-	response["table"] = group.ToResponse(false, admin)
+	response["table"] = group.Response(admin)
 
 	return response
 }
@@ -89,7 +100,7 @@ func (s *Saloon) getTableID(req *request.WSRequest) string {
 
 func (s *Saloon) getTableStatus(tb *table.Table, admin bool) map[string]interface{} {
 	response := make(map[string]interface{})
-	response["table"] = tb.ToResponse(admin)
+	response["table"] = tb.Response(admin)
 
 	return response
 }

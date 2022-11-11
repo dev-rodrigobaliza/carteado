@@ -10,6 +10,7 @@ import (
 	"github.com/dev-rodrigobaliza/carteado/domain/core/table"
 	"github.com/dev-rodrigobaliza/carteado/domain/response"
 	"github.com/dev-rodrigobaliza/carteado/errors"
+	"github.com/dev-rodrigobaliza/carteado/internal/core/deck"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/game"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/group"
 	"github.com/dev-rodrigobaliza/carteado/internal/core/player"
@@ -129,10 +130,6 @@ func (t *Table) AddPlayer(player *player.Player, secret string) error {
 	if t.HasPlayer(player.UUID) {
 		return errors.ErrExistsPlayer
 	}
-
-	if t.GetGroupPlayersCount() >= t.maxPlayers {
-		return errors.ErrMaxPlayers
-	}
 	// add player
 	t.players.Insert(player.UUID, player)
 	player.TableID = t.id
@@ -221,7 +218,7 @@ func (t *Table) GetAllowBots() bool {
 }
 
 func (t *Table) GetGameStatus() *response.Game {
-	return t.game.ToResponse()
+	return t.game.Response()
 }
 
 func (t *Table) GetGroup(groupID int) (*group.Group, error) {
@@ -308,9 +305,9 @@ func (t *Table) Start() error {
 	go func() {
 		time.Sleep(time.Millisecond * consts.TABLE_INTERVAL_START_GAME_RESPONSE)
 		// send the news to all players
-		t.sendAllPlayersResponse("start", "game status")
+		t.sendResponseAllPlayers("start", "game status")
 		// send cards to all players
-		t.sendAllPlayersResponse("card", "")
+		t.sendResponseInGamePlayers("card", "")
 		// start the game loop
 		t.loop(playersCount)
 	}()
@@ -329,12 +326,12 @@ func (t *Table) Stop(force bool) error {
 	return errors.ErrGameStop
 }
 
-func (t *Table) ToResponse(admin bool) *response.Table {
+func (t *Table) Response(admin bool) *response.Table {
 	spectators := make([]*response.Player, 0)
 	players := t.players.GetAllValues()
 	for _, player := range players {
 		if player.GroupID == 0 {
-			spectators = append(spectators, player.ToResponse(false, admin))
+			spectators = append(spectators, player.Response(admin, false))
 		}
 	}
 
@@ -342,7 +339,7 @@ func (t *Table) ToResponse(admin bool) *response.Table {
 	grs := t.groups.GetAllValues()
 	for _, group := range grs {
 		if group.GetPlayersCount() > 0 {
-			groups = append(groups, group.ToResponse(false, admin))
+			groups = append(groups, group.Response(admin))
 		}
 	}
 
@@ -350,11 +347,11 @@ func (t *Table) ToResponse(admin bool) *response.Table {
 	for _, w := range t.winners {
 		winner, err := t.groups.GetOneValue(w, false)
 		if err == nil {
-			winners = append(winners, winner.ToResponse(false, admin))
+			winners = append(winners, winner.Response(admin))
 		}
 	}
 
-	game := t.game.ToResponse()
+	game := t.game.Response()
 
 	created := fmt.Sprintf("%d", t.createdAt.UnixMilli())
 	var started string
@@ -364,6 +361,38 @@ func (t *Table) ToResponse(admin bool) *response.Table {
 	ta := response.NewTable(t.id, t.gameMode.String(), t.createBy, t.startedBy, created, started, t.IsPrivate(), t.GetGroupPlayersCount(), spectators, groups, winners, game)
 
 	return ta
+}
+
+func (t *Table) getInGamePlayers() []*player.Player {
+	playersInGame := make([]*player.Player, 0)
+	grs := t.groups.GetAllValues()
+	for _, g := range grs {
+		p, err := g.GetNextPlayer()
+		if err != nil {
+			continue
+		}
+
+		playersInGame = append(playersInGame, p)
+	}
+
+	return playersInGame
+}
+
+func (t *Table) getPlayerDeck(player *player.Player) (*deck.Deck, error) {
+	// get group from player
+	g, err := t.groups.GetOneValue(player.GroupID, false)
+	if err != nil {
+		// TODO (@dev-rodrigobaliza) how do we handle this error?
+		return nil, err
+	}
+	// get deck from group
+	d, err := g.GetPlayerDeck(player.UUID)
+	if err != nil {
+		// TODO (@dev-rodrigobaliza) how do we handle this error?
+		return nil, err
+	}
+
+	return d, nil
 }
 
 func (t *Table) loop(playersCount int) {
@@ -378,23 +407,33 @@ loop:
 
 		case <-ticker.C:
 			ticker.Stop()
-			finished, err := t.game.Loop()
+			playerID, finished, err := t.game.Loop()
 			if err != nil {
-				p, _ := t.game.GetActivePlayer()
-				g := t.game.GetActiveGroup()
-
 				switch err {
+				case errors.ErrSendBotPlayerContinue:
+					t.sendResponseAllPlayers("bot-continue", "")
+
+				case errors.ErrSendBotPlayerDiscontinue:
+					t.sendResponseAllPlayers("bot-discontinue", "")
+
+				case errors.ErrSendBotPlayerGotCard:
+					t.sendResponseAllPlayers("bot-got-card", "")
+
 				case errors.ErrSendPlayerAction:
-					t.sendPlayerResponse(p.UUID, "action", "", g)
+					t.sendPlayerResponse(playerID, "action", "")
 
 				case errors.ErrSendPlayerCards:
-					t.sendPlayerResponse(p.UUID, "card", "", g)
+					t.sendPlayerResponse(playerID, "card", "")
+
+				case errors.ErrSendPlayerGotCard:
+					t.sendResponseAllPlayers("got-card", "")
 
 				case errors.ErrSendPlayerLoose:
-					t.sendPlayerResponse(p.UUID, "loose", "", g)
+					t.sendResponseAllPlayers("discontinue", "")
+					t.sendPlayerResponse(playerID, "loose", "")
 
 				case errors.ErrSendPlayerWin:
-					t.sendPlayerResponse(p.UUID, "win", "", g)
+					t.sendPlayerResponse(playerID, "win", "")
 				}
 			}
 
@@ -409,7 +448,7 @@ loop:
 
 	ticker.Stop()
 	t.state = table.StateFinish
-	t.sendAllPlayersResponse("stop", "")
+	t.sendResponseAllPlayers("stop", "")
 
 	err := t.game.Stop()
 	if err != nil {
@@ -417,62 +456,43 @@ loop:
 	}
 }
 
-func (t *Table) sendAllPlayersResponse(status, message string) {
+func (t *Table) sendResponseAllPlayers(status, message string) {
 	// message for all players, inclusive spectators
-	if status == "start" || status == "stop" {
-		// TODO (@dev-rodrigobaliza) inform the winner for all if stop and hasWinner
-		pls := t.players.GetAllValues()
-		for _, p := range pls {
-			if p.IsBot {
-				continue
-			}
-			if p.GroupID > 0 {
-				p.Action = status
-			}
-
-			t.sendPlayerResponse(p.UUID, p.Action, message, nil)
-		}
-
-		return
-	}
-	// message only for players in game
-	grs := t.groups.GetAllValues()
-	for _, g := range grs {
-		p, err := g.GetNextPlayer()
-		if err != nil {
-			continue
-		}
-
-		if status != "" {
-			p.Action = status
-		}
-
+	pls := t.players.GetAllValues()
+	for _, p := range pls {
 		if p.IsBot {
 			continue
 		}
 
-		t.sendPlayerResponse(p.UUID, p.Action, message, g)
+		t.sendPlayerResponse(p.UUID, status, message)
 	}
 }
 
-func (t *Table) sendPlayerResponse(playerID, status, message string, group *group.Group) {
-	response := make(map[string]interface{})
+func (t *Table) sendResponseInGamePlayers(status, message string) {
+	// message only for players in game
+	inGamePlayers := t.getInGamePlayers()
+	for _, p := range inGamePlayers {
+		p.Action = status
+		if p.IsBot {
+			continue
+		}
 
+		t.sendPlayerResponse(p.UUID, status, message)
+	}
+}
+
+func (t *Table) sendPlayerResponse(playerID, status, message string) {
+	response := make(map[string]interface{})
+	// get player
 	p, err := t.players.GetOneValue(playerID, false)
-	if err != nil || p.IsBot {
+	if err != nil {
 		// TODO (@dev-rodrigobaliza) log this error
 		return
 	}
-
-	if p.GroupID > 0 {
-		d, err := group.GetPlayerDeck(playerID)
-		if err != nil {
-			// TODO (@dev-rodrigobaliza) how do we handle this error?
-			return
-		}
-		response["deck"] = d.ToResponse(t.id, true)
+	if p.IsBot {
+		return
 	}
-
+	// make response
 	switch status {
 	case "action":
 		message = "waiting for player action"
@@ -490,10 +510,27 @@ func (t *Table) sendPlayerResponse(playerID, status, message string, group *grou
 		message = "game status"
 		response["status"] = status
 
+	case "continue", "discontinue", "got-card", "bot-continue", "bot-discontinue", "bot-got-card":
+		message = "game status"
+		response["status"] = status
+		ap, _ := t.game.GetActivePlayer()
+		response["player"] = ap.Response(p.User.IsAdmin, false)
+		if p.User.IsAdmin {
+			d, _ := t.getPlayerDeck(ap)
+			response["deck"] = d.Response(t.id, false)
+		}
+
 	default:
 		return
 	}
-
+	// get player deck (if pertinent)
+	_, ok := response["deck"]
+	if !ok {
+		d, err := t.getPlayerDeck(p)
+		if err == nil {
+			response["deck"] = d.Response(t.id, !p.User.IsAdmin)
+		}
+	}
 	// send response
 	p.SendResponse(nil, "info", message, response)
 }

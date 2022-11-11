@@ -39,14 +39,11 @@ func (s *Saloon) resourceAuthLogin(pl *player.Player, req *request.WSRequest) {
 	// make response
 	response := make(map[string]interface{})
 	response["first_login"] = firstLogin
-	response["player"] = pl.ToResponse(true, pl.User.IsAdmin)
+	response["player"] = pl.Response(true, false)
 	// send response
 	s.sendResponseSuccess(pl, req, pl.Greeting(), response)
-	if pl.User.IsAdmin {
-		pl.SendResponse(nil, "info", "server status", s.getServerStatusResponse(false))
-	}
 	// debug log
-	s.debug("=== auth login %v", response)
+	s.debug("=== auth login %s", response)
 }
 
 func (s *Saloon) serviceAuth(pl *player.Player, req *request.WSRequest) {

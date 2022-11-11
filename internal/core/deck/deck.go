@@ -128,6 +128,22 @@ func (d *Deck) HasCard(card string) bool {
 	return d.cards.HasKey(card)
 }
 
+func (d *Deck) Response(tableID string, visibleOnly bool) *response.Deck {
+	cards := make([]*response.Card, 0)
+	for _, ca := range d.cards.GetAllValues() {
+		var cardStr string
+		if ca.Visible {
+			cardStr = ca.String(true, true)
+		} else {
+			cardStr = ""
+		}
+		car := response.NewCard(cardStr, ca.Value(true))
+		cards = append(cards, car)
+	}
+
+	return response.NewDeck(tableID, cards)
+}
+
 func (d *Deck) Shuffle(times int) {
 	cards := d.cards.GetAllValues()
 
@@ -144,20 +160,4 @@ func (d *Deck) Shuffle(times int) {
 	for _, card := range cards {
 		d.cards.Insert(card.GetID(), card)
 	}
-}
-
-func (d *Deck) ToResponse(tableID string, visibleOnly bool) *response.Deck {
-	cards := make([]*response.Card, 0)
-	for _, ca := range d.cards.GetAllValues() {
-		var cardStr string
-		if ca.Visible {
-			cardStr = ca.String(true, true)
-		} else {
-			cardStr = ""
-		}
-		car := response.NewCard(cardStr, ca.Value(true))
-		cards = append(cards, car)
-	}
-
-	return response.NewDeck(tableID, cards)
 }
